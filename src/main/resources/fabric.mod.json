@@ -1,0 +1,18 @@
+{
+	"schemaVersion": 1,
+	"id": "mig25",
+	"version": "${version}",
+	"name": "MiG-25 Elytra",
+	"description": "Client-side only: equip an elytra and you become a MiG-25 with a fighter-jet HUD.",
+	"authors": ["You"],
+	"license": "MIT",
+	"environment": "client",
+	"entrypoints": { "client": ["com.mig25.Mig25Client"] },
+	"mixins": [ { "config": "mig25.mixins.json", "environment": "client" } ],
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}
