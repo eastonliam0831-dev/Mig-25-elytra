@@ -69,6 +69,35 @@ public class SettingsScreen extends Screen {
 	@Override
 	public void onClose() {
 		JetConfig.save();
-		this.minecraft.setScreen(parent);
+		open(this.minecraft, parent);
+	}
+
+	/** Opens a screen. Found by parameter type because Minecraft.setScreen was renamed in 26.x. */
+	public static void open(net.minecraft.client.Minecraft mc, Screen screen) {
+		try {
+			java.lang.reflect.Method best = null;
+			for (java.lang.reflect.Method m : net.minecraft.client.Minecraft.class.getMethods()) {
+				if (m.getParameterCount() == 1 && m.getParameterTypes()[0] == Screen.class) {
+					if (best == null || m.getName().equals("setScreen")
+							|| (m.getName().startsWith("setScreen") && !best.getName().equals("setScreen"))) {
+						best = m;
+					}
+				}
+			}
+			if (best == null) {
+				for (java.lang.reflect.Method m : net.minecraft.client.Minecraft.class.getDeclaredMethods()) {
+					if (m.getParameterCount() == 1 && m.getParameterTypes()[0] == Screen.class
+							&& m.getName().startsWith("setScreen")) {
+						m.setAccessible(true);
+						best = m;
+						break;
+					}
+				}
+			}
+			if (best != null) best.invoke(mc, screen);
+			else System.err.println("[mig25] no method to open a screen was found");
+		} catch (Throwable t) {
+			System.err.println("[mig25] could not open screen: " + t);
+		}
 	}
 }

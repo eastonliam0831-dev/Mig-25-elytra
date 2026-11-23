@@ -46,7 +46,7 @@ public class Mig25Client implements ClientModInitializer {
 			JetState.tick(mc);
 			if (settingsKey != null) {
 				while (settingsKey.consumeClick()) {
-					mc.setScreen(new SettingsScreen(null));
+					SettingsScreen.open(mc, new SettingsScreen(null));
 				}
 			}
 		});
