@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(EntityRenderDispatcher.class)
 public class EntityRenderDispatcherMixin {
 	@Inject(method = "shouldRender", at = @At("HEAD"), cancellable = true, require = 0)
-	private void mig25$hidePlayer(Entity entity, @Coerce Object frustum, double x, double y, double z,
+	private void mig25$hidePlayer(Entity entity, @Coerce Object frustum, double x, double y, double z, float partialTick,
 			CallbackInfoReturnable<Boolean> cir) {
 		if (JetState.active && entity == Minecraft.getInstance().player) {
 			cir.setReturnValue(false);
