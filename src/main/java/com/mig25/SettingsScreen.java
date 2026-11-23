@@ -69,6 +69,6 @@ public class SettingsScreen extends Screen {
 	@Override
 	public void onClose() {
 		JetConfig.save();
-		this.minecraft.setScreen(parent);
+		this.client.setScreen(parent);
 	}
 }
