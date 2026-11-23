@@ -46,7 +46,7 @@ public class Mig25Client implements ClientModInitializer {
 			JetState.tick(mc);
 			if (settingsKey != null) {
 				while (settingsKey.consumeClick()) {
-					MinecraftClient.getInstance().setScreen(new SettingsScreen(null));
+					mc.setScreen(new SettingsScreen(null));
 				}
 			}
 		});
