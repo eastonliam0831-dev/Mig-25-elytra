@@ -13,25 +13,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Java 25
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '25'
 
-      - name: Install Gradle 9.8
-        uses: gradle/actions/setup-gradle@v4
+      - name: Download Gradle 9.8
+        run: |
+          curl -fL https://services.gradle.org/distributions/gradle-9.8-bin.zip -o gradle.zip
+          unzip -q gradle.zip -d "$RUNNER_TEMP"
+          "$RUNNER_TEMP/gradle-9.8/bin/gradle" --version
 
-      - name: Verify Gradle version
-        run: ./gradlew --version
+      - name: Build Minecraft Mod
+        run: |
+          "$RUNNER_TEMP/gradle-9.8/bin/gradle" build --no-daemon
 
-      - name: Build mod
-        run: ./gradlew build --no-daemon
-
-      - name: Upload mod
+      - name: Upload Mod JAR
         uses: actions/upload-artifact@v4
         if: success()
         with:
