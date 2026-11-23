@@ -18,17 +18,27 @@ public final class JetConfig {
 	public static boolean invertRoll = false;
 	public static boolean autoBank = true;
 	public static boolean pushAhead = true;
+	public static boolean freeLook = true;
+	public static int freeLookSens = 1;
 	public static int sizeIndex = 2;
 	public static int gearMode = 0; // 0 auto, 1 always down, 2 removed
 	public static int colorIndex = 0;
 
 	public static final double MODEL_LENGTH = 23.58; // model units (1 unit ~ 1 metre)
+	public static final double[] LOOK_SENS = {0.5, 1.0, 1.5, 2.0};
 	public static final double[] SIZES = {0.25, 0.35, 0.5, 0.75, 1.0};
 	public static final String[] GEAR_NAMES = {"Auto (down on ground only)", "Always down", "Removed"};
 	public static final String[] COLOR_NAMES = {"Green", "Amber", "Cyan", "White", "Red"};
 	public static final int[] COLORS = {0xFF33FF66, 0xFFFFB000, 0xFF33DDFF, 0xFFFFFFFF, 0xFFFF5555};
 
 	private JetConfig() {}
+
+	public static void reset() {
+		enabled = true; hud = true; onlyGliding = false; forceThirdPerson = true; barrelRoll = true;
+		invertRoll = false; autoBank = true; pushAhead = true; freeLook = true; freeLookSens = 1;
+		sizeIndex = 2; gearMode = 0; colorIndex = 0;
+		save();
+	}
 
 	public static float scale() {
 		return (float) SIZES[Math.floorMod(sizeIndex, SIZES.length)];
@@ -74,6 +84,8 @@ public final class JetConfig {
 			invertRoll = b(p, "invertRoll", invertRoll);
 			autoBank = b(p, "autoBank", autoBank);
 			pushAhead = b(p, "pushAhead", pushAhead);
+			freeLook = b(p, "freeLook", freeLook);
+			freeLookSens = Math.floorMod(i(p, "freeLookSens", freeLookSens), LOOK_SENS.length);
 			sizeIndex = Math.floorMod(i(p, "sizeIndex", sizeIndex), SIZES.length);
 			gearMode = Math.floorMod(i(p, "gearMode", gearMode), GEAR_NAMES.length);
 			colorIndex = Math.floorMod(i(p, "colorIndex", colorIndex), COLORS.length);
@@ -93,6 +105,8 @@ public final class JetConfig {
 			p.setProperty("invertRoll", String.valueOf(invertRoll));
 			p.setProperty("autoBank", String.valueOf(autoBank));
 			p.setProperty("pushAhead", String.valueOf(pushAhead));
+			p.setProperty("freeLook", String.valueOf(freeLook));
+			p.setProperty("freeLookSens", String.valueOf(freeLookSens));
 			p.setProperty("sizeIndex", String.valueOf(sizeIndex));
 			p.setProperty("gearMode", String.valueOf(gearMode));
 			p.setProperty("colorIndex", String.valueOf(colorIndex));

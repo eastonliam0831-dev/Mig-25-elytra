@@ -35,15 +35,19 @@ public class Mig25Client implements ClientModInitializer {
 
 	private static volatile Frame frame = null;
 	private static KeyMapping settingsKey;
+	private static KeyMapping freeLookKey;
+	private static KeyMapping.Category category;
 
 	@Override
 	public void onInitializeClient() {
 		JetConfig.load();
 		JetModel.load();
-		registerKey();
+		settingsKey = registerKey("key.mig25.settings", 74);     // J
+		freeLookKey = registerKey("key.mig25.freelook", 342);    // Left Alt
 
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
 			JetState.tick(mc);
+			FreeLook.tick(freeLookKey != null && freeLookKey.isDown());
 			if (settingsKey != null) {
 				while (settingsKey.consumeClick()) {
 					SettingsScreen.open(mc, new SettingsScreen(null));
@@ -111,15 +115,15 @@ public class Mig25Client implements ClientModInitializer {
 				Identifier.fromNamespaceAndPath(ID, "jet_hud"), JetHud::render);
 	}
 
-	/** Registers the settings key. Built by reflection so either 26.x KeyMapping constructor shape works. */
-	private static void registerKey() {
+	/** Registers a key. Built by reflection so either 26.x KeyMapping constructor shape works. */
+	private static KeyMapping registerKey(String translationKey, int code) {
 		try {
-			KeyMapping.Category cat = KeyMapping.Category.register(Identifier.fromNamespaceAndPath(ID, "main"));
+			if (category == null) category = KeyMapping.Category.register(Identifier.fromNamespaceAndPath(ID, "main"));
 			KeyMapping made = null;
 			for (Constructor<?> c : KeyMapping.class.getConstructors()) {
 				Class<?>[] p = c.getParameterTypes();
 				if (p.length == 3 && p[0] == String.class && p[1] == int.class && p[2] == KeyMapping.Category.class) {
-					made = (KeyMapping) c.newInstance("key.mig25.settings", 74, cat); // J
+					made = (KeyMapping) c.newInstance(translationKey, code, category);
 					break;
 				}
 				if (p.length == 4 && p[0] == String.class && p[1].isEnum() && p[2] == int.class
@@ -128,15 +132,16 @@ public class Mig25Client implements ClientModInitializer {
 					for (Object o : p[1].getEnumConstants()) {
 						if (((Enum<?>) o).name().equals("KEYSYM")) type = o;
 					}
-					made = (KeyMapping) c.newInstance("key.mig25.settings", type, 74, cat);
+					made = (KeyMapping) c.newInstance(translationKey, type, code, category);
 					break;
 				}
 			}
-			if (made != null) settingsKey = KeyMappingHelper.registerKeyMapping(made);
-			else System.err.println("[mig25] no usable KeyMapping constructor; settings key unavailable");
+			if (made != null) return KeyMappingHelper.registerKeyMapping(made);
+			System.err.println("[mig25] no usable KeyMapping constructor; key unavailable: " + translationKey);
 		} catch (Throwable t) {
-			System.err.println("[mig25] could not register settings key: " + t);
+			System.err.println("[mig25] could not register key " + translationKey + ": " + t);
 		}
+		return null;
 	}
 
 	private static void submitGroup(net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext context,

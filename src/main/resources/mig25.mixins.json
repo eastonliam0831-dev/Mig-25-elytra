@@ -1,7 +1,8 @@
 {
 	"required": true,
 	"package": "com.mig25.mixin",
+	"plugin": "com.mig25.mixin.Mig25MixinPlugin",
 	"compatibilityLevel": "JAVA_21",
-	"client": ["EntityRenderDispatcherMixin"],
+	"client": ["EntityRenderDispatcherMixin", "EntityTurnMixin", "CameraMixin"],
 	"injectors": { "defaultRequire": 0 }
 }
