@@ -22,15 +22,15 @@ jobs:
           distribution: temurin
           java-version: '25'
 
-      - name: Download Gradle 9.8
+      - name: Download Gradle 9.8.0
         run: |
-          curl -fL https://services.gradle.org/distributions/gradle-9.8-bin.zip -o gradle.zip
+          curl -fL https://services.gradle.org/distributions/gradle-9.8.0-bin.zip -o gradle.zip
           unzip -q gradle.zip -d "$RUNNER_TEMP"
-          "$RUNNER_TEMP/gradle-9.8/bin/gradle" --version
+          "$RUNNER_TEMP/gradle-9.8.0/bin/gradle" --version
 
       - name: Build Minecraft Mod
         run: |
-          "$RUNNER_TEMP/gradle-9.8/bin/gradle" build --no-daemon
+          "$RUNNER_TEMP/gradle-9.8.0/bin/gradle" build --no-daemon
 
       - name: Upload Mod JAR
         uses: actions/upload-artifact@v4
