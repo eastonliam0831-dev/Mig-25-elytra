@@ -1,8 +1,8 @@
 package com.mig25;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.math.Axis;
 import net.fabricmc.api.ClientModInitializer;
+import org.joml.Matrix4f;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
@@ -60,12 +60,12 @@ public class Mig25Client implements ClientModInitializer {
 			PoseStack pose = context.poseStack();
 			pose.pushPose();
 			pose.translate(f.x() - cam.x, f.y() - cam.y, f.z() - cam.z);
-			pose.mulPose(Axis.YP.rotationDegrees(-f.yaw()));
-			pose.mulPose(Axis.XP.rotationDegrees(f.pitch()));
-			pose.mulPose(Axis.ZP.rotationDegrees(f.roll()));
+			pose.mulPose(new Matrix4f().rotationY((float) Math.toRadians(-f.yaw())));
+			pose.mulPose(new Matrix4f().rotationX((float) Math.toRadians(f.pitch())));
+			pose.mulPose(new Matrix4f().rotationZ((float) Math.toRadians(f.roll())));
 			pose.scale(SCALE, SCALE, SCALE);
-			submitGroup(context, pose, 0, RenderTypes.entityCutoutNoCull(TEX_BODY), 0xFFFFFFFF);
-			submitGroup(context, pose, 1, RenderTypes.entityCutoutNoCull(TEX_NOZZLE), 0xFFFFFFFF);
+			submitGroup(context, pose, 0, RenderTypes.entityTranslucent(TEX_BODY), 0xFFFFFFFF);
+			submitGroup(context, pose, 1, RenderTypes.entityTranslucent(TEX_NOZZLE), 0xFFFFFFFF);
 			submitGroup(context, pose, 2, RenderTypes.entityTranslucent(TEX_GLASS), 0x59B8D0E0);
 			pose.popPose();
 		});
