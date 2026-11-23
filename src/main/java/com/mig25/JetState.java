@@ -10,9 +10,6 @@ import net.minecraft.world.item.Items;
 
 /** Client-side state: is the jet active, plus smoothed roll and camera handling. */
 public final class JetState {
-	/** false = jet whenever an elytra is EQUIPPED (default). true = only while actually gliding. */
-	public static final boolean ONLY_WHILE_GLIDING = false;
-
 	public static volatile boolean active = false;
 	public static float roll = 0f, prevRoll = 0f;
 	private static float lastYaw = 0f;
@@ -27,12 +24,12 @@ public final class JetState {
 
 	public static void tick(Minecraft mc) {
 		LocalPlayer p = mc.player;
-		boolean want = p != null && mc.level != null && !p.isSpectator() && elytraEquipped(p)
-				&& (!ONLY_WHILE_GLIDING || p.isFallFlying());
+		boolean want = JetConfig.enabled && p != null && mc.level != null && !p.isSpectator() && elytraEquipped(p)
+				&& (!JetConfig.onlyGliding || p.isFallFlying());
 		if (want && !active) {
 			active = true;
 			savedCamera = getCamera(mc);
-			setCamera(mc, "THIRD_PERSON_BACK");
+			if (JetConfig.forceThirdPerson) setCamera(mc, "THIRD_PERSON_BACK");
 			lastYaw = p.getYRot();
 		} else if (!want && active) {
 			active = false;
@@ -50,36 +47,64 @@ public final class JetState {
 		}
 	}
 
-	// Camera handled by reflection so a renamed method can never break compilation or crash the game.
+	// Camera handled by reflection, found by TYPE (not name), so renamed methods cannot break it.
+	private static Class<?> cameraTypeClass() throws Exception {
+		return Class.forName("net.minecraft.client.CameraType");
+	}
+
 	private static Object getCamera(Minecraft mc) {
 		try {
-			Method m = mc.options.getClass().getMethod("getCameraType");
-			return m.invoke(mc.options);
+			Class<?> type = cameraTypeClass();
+			for (Method m : mc.options.getClass().getMethods()) {
+				if (m.getParameterCount() == 0 && m.getReturnType() == type) return m.invoke(mc.options);
+			}
+			for (java.lang.reflect.Field f : mc.options.getClass().getDeclaredFields()) {
+				if (f.getType() == type && !java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
+					f.setAccessible(true);
+					return f.get(mc.options);
+				}
+			}
 		} catch (Throwable t) {
-			return null;
+			System.err.println("[mig25] could not read camera type: " + t);
 		}
+		return null;
+	}
+
+	private static boolean applyCamera(Minecraft mc, Object value) {
+		try {
+			Class<?> type = cameraTypeClass();
+			for (Method m : mc.options.getClass().getMethods()) {
+				if (m.getParameterCount() == 1 && m.getParameterTypes()[0] == type) {
+					m.invoke(mc.options, value);
+					return true;
+				}
+			}
+			for (java.lang.reflect.Field f : mc.options.getClass().getDeclaredFields()) {
+				if (f.getType() == type && !java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
+					f.setAccessible(true);
+					f.set(mc.options, value);
+					return true;
+				}
+			}
+			System.err.println("[mig25] no camera type setter found on Options");
+		} catch (Throwable t) {
+			System.err.println("[mig25] could not set camera type: " + t);
+		}
+		return false;
 	}
 
 	private static void setCamera(Minecraft mc, String name) {
 		try {
-			Class<?> type = Class.forName("net.minecraft.client.CameraType");
 			@SuppressWarnings({"unchecked", "rawtypes"})
-			Object value = Enum.valueOf((Class) type, name);
-			mc.options.getClass().getMethod("setCameraType", type).invoke(mc.options, value);
+			Object value = Enum.valueOf((Class) cameraTypeClass(), name);
+			applyCamera(mc, value);
 		} catch (Throwable t) {
-			// ignore: view just stays as it was
+			System.err.println("[mig25] camera enum lookup failed: " + t);
 		}
 	}
 
 	private static void restoreCamera(Minecraft mc) {
-		try {
-			if (savedCamera != null) {
-				Class<?> type = Class.forName("net.minecraft.client.CameraType");
-				mc.options.getClass().getMethod("setCameraType", type).invoke(mc.options, savedCamera);
-			}
-		} catch (Throwable t) {
-			// ignore
-		}
+		if (savedCamera != null) applyCamera(mc, savedCamera);
 		savedCamera = null;
 	}
 }

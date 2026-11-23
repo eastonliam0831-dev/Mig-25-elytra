@@ -11,8 +11,8 @@ import net.minecraft.world.phys.Vec3;
 
 /** Fighter-jet style HUD, drawn only while the jet is active. */
 public final class JetHud {
-	private static final int GREEN = 0xFF33FF66;
-	private static final int DIM = 0x8833FF66;
+	private static int GREEN = 0xFF33FF66;
+	private static int DIM = 0x8833FF66;
 	private static final int RED = 0xFFFF4444;
 	private static final String[] DIRS = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"};
 
@@ -21,7 +21,9 @@ public final class JetHud {
 	public static void render(GuiGraphicsExtractor g, DeltaTracker dt) {
 		Minecraft mc = Minecraft.getInstance();
 		LocalPlayer p = mc.player;
-		if (!JetState.active || p == null) return;
+		if (!JetState.active || !JetConfig.hud || p == null) return;
+		GREEN = JetConfig.hudColor();
+		DIM = (GREEN & 0x00FFFFFF) | 0x88000000;
 
 		int w = mc.getWindow().getGuiScaledWidth();
 		int h = mc.getWindow().getGuiScaledHeight();
