@@ -7,7 +7,9 @@ version = project.mod_version
 group = project.maven_group
 base { archivesName = project.archives_base_name }
 
-repositories { }
+repositories {
+	maven { name = 'CentralMirror'; url = 'https://maven-central.storage-download.googleapis.com/maven2/' }
+}
 
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"

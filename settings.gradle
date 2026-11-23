@@ -1,5 +1,7 @@
 pluginManagement {
 	repositories {
+		// Google's mirror of Maven Central first: avoids "429 Too Many Requests" from repo.maven.apache.org on GitHub runners
+		maven { name = 'CentralMirror'; url = 'https://maven-central.storage-download.googleapis.com/maven2/' }
 		maven { name = 'Fabric'; url = 'https://maven.fabricmc.net/' }
 		mavenCentral()
 		gradlePluginPortal()
