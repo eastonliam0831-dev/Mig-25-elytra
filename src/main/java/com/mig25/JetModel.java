@@ -24,17 +24,18 @@ public final class JetModel {
 			int n = b.getInt();
 			Group[] g = new Group[n];
 			for (int i = 0; i < n; i++) {
-				int vc = b.getInt(), ic = b.getInt();
+				int vc = b.getInt(), tc = b.getInt(); // tc = triangle count
 				Group gr = new Group();
 				gr.v = new float[vc * 8];
 				b.asFloatBuffer().get(gr.v);
 				b.position(b.position() + gr.v.length * 4);
-				gr.idx = new int[ic];
+				gr.idx = new int[tc * 3];
 				b.asIntBuffer().get(gr.idx);
-				b.position(b.position() + ic * 4);
+				b.position(b.position() + tc * 12);
 				g[i] = gr;
 			}
 			groups = g;
+			System.out.println("[mig25] model loaded: " + n + " groups");
 		} catch (Throwable t) {
 			System.err.println("[mig25] failed to load model: " + t);
 			groups = new Group[0];
