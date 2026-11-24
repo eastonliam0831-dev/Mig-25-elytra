@@ -5,6 +5,8 @@ import net.minecraft.client.Minecraft;
 /** Free-look state: hold the key and the mouse orbits the camera around the jet without steering it. */
 public final class FreeLook {
 	public static volatile boolean held = false;
+	/** Set by the camera hook the first time it runs. Mouse capture only happens if the camera can follow it. */
+	public static volatile boolean cameraHooked = false;
 	public static volatile float yaw = 0f;   // degrees, added to camera yaw
 	public static volatile float pitch = 0f; // degrees, added to camera pitch
 
@@ -12,7 +14,7 @@ public final class FreeLook {
 
 	/** True when mouse movement for this entity should be captured instead of steering. */
 	public static boolean capturing(Object entity) {
-		return held && JetState.active && JetConfig.freeLook && entity == Minecraft.getInstance().player;
+		return held && cameraHooked && JetState.active && JetConfig.freeLook && entity == Minecraft.getInstance().player;
 	}
 
 	public static boolean cameraActive() {

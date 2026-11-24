@@ -20,11 +20,21 @@ public final class JetConfig {
 	public static boolean pushAhead = true;
 	public static boolean freeLook = true;
 	public static int freeLookSens = 1;
+	public static String activeModel = "builtin";
+	public static int flameMode = 1; // 0 always, 1 while gliding, 2 off
+	public static String engineSound = "";
+	public static String flightSound = "";
+	public static boolean engineOn = true;
+	public static boolean flightOn = true;
+	public static int engineVol = 3;
+	public static int flightVol = 3;
 	public static int sizeIndex = 2;
 	public static int gearMode = 0; // 0 auto, 1 always down, 2 removed
 	public static int colorIndex = 0;
 
 	public static final double MODEL_LENGTH = 23.58; // model units (1 unit ~ 1 metre)
+	public static final double[] VOLS = {0.25, 0.5, 0.75, 1.0, 1.5, 2.0};
+	public static final String[] FLAME_NAMES = {"Always", "While gliding", "Off"};
 	public static final double[] LOOK_SENS = {0.5, 1.0, 1.5, 2.0};
 	public static final double[] SIZES = {0.25, 0.35, 0.5, 0.75, 1.0};
 	public static final String[] GEAR_NAMES = {"Auto (down on ground only)", "Always down", "Removed"};
@@ -36,7 +46,8 @@ public final class JetConfig {
 	public static void reset() {
 		enabled = true; hud = true; onlyGliding = false; forceThirdPerson = true; barrelRoll = true;
 		invertRoll = false; autoBank = true; pushAhead = true; freeLook = true; freeLookSens = 1;
-		sizeIndex = 2; gearMode = 0; colorIndex = 0;
+		sizeIndex = 2; gearMode = 0; colorIndex = 0; flameMode = 1;
+		engineOn = true; flightOn = true; engineVol = 3; flightVol = 3;
 		save();
 	}
 
@@ -86,6 +97,14 @@ public final class JetConfig {
 			pushAhead = b(p, "pushAhead", pushAhead);
 			freeLook = b(p, "freeLook", freeLook);
 			freeLookSens = Math.floorMod(i(p, "freeLookSens", freeLookSens), LOOK_SENS.length);
+			activeModel = p.getProperty("activeModel", activeModel);
+			flameMode = Math.floorMod(i(p, "flameMode", flameMode), FLAME_NAMES.length);
+			engineSound = p.getProperty("engineSound", engineSound);
+			flightSound = p.getProperty("flightSound", flightSound);
+			engineOn = b(p, "engineOn", engineOn);
+			flightOn = b(p, "flightOn", flightOn);
+			engineVol = Math.floorMod(i(p, "engineVol", engineVol), VOLS.length);
+			flightVol = Math.floorMod(i(p, "flightVol", flightVol), VOLS.length);
 			sizeIndex = Math.floorMod(i(p, "sizeIndex", sizeIndex), SIZES.length);
 			gearMode = Math.floorMod(i(p, "gearMode", gearMode), GEAR_NAMES.length);
 			colorIndex = Math.floorMod(i(p, "colorIndex", colorIndex), COLORS.length);
@@ -107,6 +126,14 @@ public final class JetConfig {
 			p.setProperty("pushAhead", String.valueOf(pushAhead));
 			p.setProperty("freeLook", String.valueOf(freeLook));
 			p.setProperty("freeLookSens", String.valueOf(freeLookSens));
+			p.setProperty("activeModel", activeModel);
+			p.setProperty("flameMode", String.valueOf(flameMode));
+			p.setProperty("engineSound", engineSound);
+			p.setProperty("flightSound", flightSound);
+			p.setProperty("engineOn", String.valueOf(engineOn));
+			p.setProperty("flightOn", String.valueOf(flightOn));
+			p.setProperty("engineVol", String.valueOf(engineVol));
+			p.setProperty("flightVol", String.valueOf(flightVol));
 			p.setProperty("sizeIndex", String.valueOf(sizeIndex));
 			p.setProperty("gearMode", String.valueOf(gearMode));
 			p.setProperty("colorIndex", String.valueOf(colorIndex));

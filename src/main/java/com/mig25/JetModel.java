@@ -11,6 +11,7 @@ public final class JetModel {
 	public static final class Group {
 		public float[] v; // 8 floats per vertex: pos(3) normal(3) uv(2)
 		public int[] idx; // triangles
+		public int[] col; // optional ARGB per vertex (imported models); null = use the colour passed at draw time
 	}
 
 	public static Group[] groups = new Group[0];

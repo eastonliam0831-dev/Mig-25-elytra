@@ -29,14 +29,22 @@ public class Mig25MixinPlugin implements IMixinConfigPlugin {
 		return false;
 	}
 
+	private static boolean hasExact(ClassNode cn, String name, String desc) {
+		for (MethodNode m : cn.methods) {
+			if (m.name.equals(name) && m.desc.equals(desc)) return true;
+		}
+		return false;
+	}
+
 	@Override
 	public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
 		try {
 			ClassNode cn = MixinService.getService().getBytecodeProvider().getClassNode(targetClassName);
 			boolean ok = true;
 			if (mixinClassName.endsWith("EntityRenderDispatcherMixin")) ok = has(cn, "shouldRender", "DDDF)Z");
-			else if (mixinClassName.endsWith("EntityTurnMixin")) ok = has(cn, "turn", "(DD)V");
-			else if (mixinClassName.endsWith("CameraMixin")) ok = has(cn, "setRotation", "(FFF)V");
+			else if (mixinClassName.endsWith("EntityTurnMixin")) ok = hasExact(cn, "turn", "(DD)V");
+			else if (mixinClassName.endsWith(".CameraMixin")) ok = hasExact(cn, "setRotation", "(FF)V");
+			else if (mixinClassName.endsWith(".CameraMixinAlt")) ok = !hasExact(cn, "setRotation", "(FF)V") && hasExact(cn, "setRotation", "(FFF)V");
 			if (!ok) System.err.println("[mig25] skipping " + mixinClassName + ": target method not found");
 			return ok;
 		} catch (Throwable t) {

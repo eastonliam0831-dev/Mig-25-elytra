@@ -11,6 +11,9 @@ import net.minecraft.world.item.Items;
 /** Client-side state: is the jet active, plus smoothed roll and camera handling. */
 public final class JetState {
 	public static volatile boolean active = false;
+	/** True while the model editor is open: the jet is shown (and flames lit) even without an elytra. */
+	public static volatile boolean editorOpen = false;
+	public static float previewYaw = 0f, previewPitch = 0f;
 	public static float roll = 0f, prevRoll = 0f;
 	private static float lastYaw = 0f;
 	private static Object savedCamera = null;
@@ -24,8 +27,8 @@ public final class JetState {
 
 	public static void tick(Minecraft mc) {
 		LocalPlayer p = mc.player;
-		boolean want = JetConfig.enabled && p != null && mc.level != null && !p.isSpectator() && elytraEquipped(p)
-				&& (!JetConfig.onlyGliding || p.isFallFlying());
+		boolean want = JetConfig.enabled && p != null && mc.level != null && !p.isSpectator()
+				&& (editorOpen || (elytraEquipped(p) && (!JetConfig.onlyGliding || p.isFallFlying())));
 		if (want && !active) {
 			active = true;
 			savedCamera = getCamera(mc);
