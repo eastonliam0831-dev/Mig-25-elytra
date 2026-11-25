@@ -1,5 +1,6 @@
 {
-	"key.mig25.settings": "Open MiG-25 Settings",
-	"key.mig25.freelook": "MiG-25 Free Look (hold)",
-	"key.category.mig25.main": "MiG-25 Elytra"
+	"key.mig25.settings": "Open AeroCraft Control Panel",
+	"key.mig25.freelook": "AeroCraft Free Look (hold)",
+	"key.mig25.gear": "AeroCraft Landing Gear Lever",
+	"key.category.mig25.main": "AeroCraft Elytra"
 }

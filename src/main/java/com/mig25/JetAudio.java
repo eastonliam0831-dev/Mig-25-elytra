@@ -62,8 +62,8 @@ public final class JetAudio {
 			float ePitch = gliding ? 0.8f + 0.5f * thr : 0.75f;
 			float fGain = (float) JetConfig.VOLS[JetConfig.flightVol] * master * (0.2f + 0.8f * thr);
 			float fPitch = 0.85f + 0.4f * thr;
-			update(ENGINE, JetConfig.engineSound, JetConfig.engineOn && active, eGain, ePitch);
-			update(FLIGHT, JetConfig.flightSound, JetConfig.flightOn && gliding, fGain, fPitch);
+			update(ENGINE, ModelManager.profile.engineSound, JetConfig.engineOn && active, eGain, ePitch);
+			update(FLIGHT, ModelManager.profile.flightSound, JetConfig.flightOn && gliding, fGain, fPitch);
 		} catch (Throwable t) {
 			broken = true;
 			System.err.println("[mig25] audio disabled: " + t);

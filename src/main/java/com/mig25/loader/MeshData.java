@@ -1,12 +1,37 @@
 package com.mig25.loader;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /** A bag of triangles (3 vertices each) with one colour per vertex. Loaders fill this, ModelBake consumes it. */
 public final class MeshData {
 	private float[] pos = new float[9 * 256];
 	private int[] col = new int[3 * 256];
 	private int n; // vertex count (always a multiple of 3)
+	private int[] partOfTri = new int[256];
+	private final List<String> partNames = new ArrayList<>();
+	private int currentPart = -1;
+
+	/** Starts a named sub-mesh ("part"); following triangles belong to it. Same name = same part. */
+	public void setPart(String name) {
+		String nm = (name == null || name.isBlank()) ? "mesh" : name.trim();
+		int idx = partNames.indexOf(nm);
+		if (idx < 0) {
+			partNames.add(nm);
+			idx = partNames.size() - 1;
+		}
+		currentPart = idx;
+	}
+
+	public List<String> partNames() {
+		return partNames;
+	}
+
+	/** Part id for each triangle. */
+	public int[] partIds() {
+		return Arrays.copyOf(partOfTri, n / 3);
+	}
 
 	public int vertexCount() {
 		return n;
@@ -27,6 +52,9 @@ public final class MeshData {
 			pos = Arrays.copyOf(pos, cap * 3);
 			col = Arrays.copyOf(col, cap);
 		}
+		if (currentPart < 0) setPart("mesh");
+		if (n / 3 >= partOfTri.length) partOfTri = Arrays.copyOf(partOfTri, partOfTri.length * 2);
+		partOfTri[n / 3] = currentPart;
 		int p = n * 3;
 		pos[p] = (float) ax; pos[p + 1] = (float) ay; pos[p + 2] = (float) az;
 		pos[p + 3] = (float) bx; pos[p + 4] = (float) by; pos[p + 5] = (float) bz;

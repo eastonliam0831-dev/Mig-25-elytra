@@ -17,6 +17,25 @@ public final class FreeLook {
 		return held && cameraHooked && JetState.active && JetConfig.freeLook && entity == Minecraft.getInstance().player;
 	}
 
+	/** Camera-shake offset in degrees from speed and throttle (adds to the camera only, never to your aim). */
+	private static float shake(float phase) {
+		if (!JetConfig.shake || !JetState.active || !JetState.gliding) return 0f;
+		double over = Math.max(0.0, Math.min(1.0, (JetState.speed - 18.0) / 50.0));
+		double amp = JetConfig.SHAKE_AMP[JetConfig.shakeIdx] * over * over;
+		double t = (System.nanoTime() / 1.0e9) % 1000.0;
+		return (float) (amp * (Math.sin(t * 47.0 + phase) + 0.6 * Math.sin(t * 91.0 + phase * 1.7)) * 0.5);
+	}
+
+	/** Total yaw added to the camera: free-look orbit plus shake. */
+	public static float yawAdd() {
+		return (cameraActive() ? yaw : 0f) + shake(0f);
+	}
+
+	/** Total pitch added to the camera: free-look orbit plus shake. */
+	public static float pitchAdd() {
+		return (cameraActive() ? pitch : 0f) + shake(2.1f);
+	}
+
 	public static boolean cameraActive() {
 		return JetState.active && JetConfig.freeLook && (held || yaw != 0f || pitch != 0f);
 	}

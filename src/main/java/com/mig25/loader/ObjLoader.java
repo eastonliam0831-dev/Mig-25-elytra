@@ -60,6 +60,7 @@ final class ObjLoader {
 							if (Files.exists(p)) mats.putAll(loadMtl(p));
 						}
 					}
+					case "o", "g" -> m.setPart(t.length > 1 ? s.substring(t[0].length()).trim() : "mesh");
 					case "usemtl" -> color = t.length > 1 && mats.containsKey(t[1]) ? mats.get(t[1]) : MeshData.DEFAULT_GREY;
 					case "f" -> {
 						int cnt = t.length - 1;

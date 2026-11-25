@@ -91,6 +91,10 @@ final class DaeLoader {
 		NodeList meshes = doc.getElementsByTagName("mesh");
 		for (int mi = 0; mi < meshes.getLength(); mi++) {
 			Element mesh = (Element) meshes.item(mi);
+			if (mesh.getParentNode() instanceof Element ge) {
+				String gn = ge.getAttribute("name").isEmpty() ? ge.getAttribute("id") : ge.getAttribute("name");
+				out.setPart(gn);
+			}
 			Map<String, double[]> sources = new HashMap<>();
 			Map<String, Integer> strides = new HashMap<>();
 			for (Node n = mesh.getFirstChild(); n != null; n = n.getNextSibling()) {

@@ -15,12 +15,13 @@ import com.mig25.loader.UnsupportedFormatException;
 
 import net.fabricmc.loader.api.FabricLoader;
 
-/** Model library: config/mig25/models holds imported files, config/mig25/profiles holds their editor settings. */
+/** Plane library: config/aerocraft/models holds the aircraft files, config/aerocraft/profiles their saved setups. */
 public final class ModelManager {
 	public static final String BUILTIN = "builtin";
 
 	public static volatile LoadedModel current;
 	public static volatile ModelProfile profile = ModelProfile.defaultFor(true);
+	public static volatile Rig rig;
 	public static volatile String currentName = BUILTIN;
 	public static volatile String status = "";
 	public static volatile boolean loading = false;
@@ -28,7 +29,7 @@ public final class ModelManager {
 	private ModelManager() {}
 
 	public static Path root() {
-		return FabricLoader.getInstance().getConfigDir().resolve("mig25");
+		return FabricLoader.getInstance().getConfigDir().resolve("aerocraft");
 	}
 
 	public static Path modelsDir() {
@@ -46,6 +47,52 @@ public final class ModelManager {
 	public static LoadedModel model() {
 		LoadedModel m = current;
 		return m != null ? m : LoadedModel.builtin();
+	}
+
+	/** Name shown in menus and on the HUD: no folder, no extension. */
+	public static String displayName(String name) {
+		if (name == null || name.equals(BUILTIN)) return "Default Fighter";
+		int dot = name.lastIndexOf('.');
+		return dot > 0 ? name.substring(0, dot) : name;
+	}
+
+	/** Rebuilds the moving-parts split after a model, profile or selection change. */
+	public static void rebuildRig() {
+		try {
+			LoadedModel m = model();
+			rig = Rig.build(m.groups, m.partNames, m.longest, profile.rig);
+		} catch (Throwable t) {
+			System.err.println("[mig25] could not build rig: " + t);
+		}
+	}
+
+	/** One-time, non-destructive copy of config/mig25 (the old folder name) into config/aerocraft. */
+	public static void migrateOldFolder() {
+		try {
+			Path cfg = FabricLoader.getInstance().getConfigDir();
+			Path old = cfg.resolve("mig25");
+			Files.createDirectories(root());
+			if (Files.isDirectory(old)) {
+				for (String sub : new String[] {"models", "sounds", "profiles"}) copyMissing(old.resolve(sub), root().resolve(sub));
+			}
+			Path oldProps = cfg.resolve("mig25.properties");
+			Path newProps = JetConfig.file();
+			if (Files.exists(oldProps) && !Files.exists(newProps)) Files.copy(oldProps, newProps);
+		} catch (Throwable t) {
+			System.err.println("[mig25] migration failed: " + t);
+		}
+	}
+
+	private static void copyMissing(Path from, Path to) throws IOException {
+		if (!Files.isDirectory(from)) return;
+		Files.createDirectories(to);
+		try (Stream<Path> s = Files.list(from)) {
+			for (Path f : (Iterable<Path>) s::iterator) {
+				if (!Files.isRegularFile(f)) continue;
+				Path dst = to.resolve(f.getFileName().toString());
+				if (!Files.exists(dst)) Files.copy(f, dst);
+			}
+		}
 	}
 
 	public static void init() {
@@ -72,6 +119,22 @@ public final class ModelManager {
 		return out;
 	}
 
+	/** Older versions kept one global engine/flight sound; give it to the first plane that loads. */
+	private static void adoptLegacySounds() {
+		boolean changed = false;
+		if (!JetConfig.engineSound.isEmpty() && profile.engineSound.isEmpty()) {
+			profile.engineSound = JetConfig.engineSound;
+			JetConfig.engineSound = "";
+			changed = true;
+		}
+		if (!JetConfig.flightSound.isEmpty() && profile.flightSound.isEmpty()) {
+			profile.flightSound = JetConfig.flightSound;
+			JetConfig.flightSound = "";
+			changed = true;
+		}
+		if (changed) profile.save(profilesDir(), currentName);
+	}
+
 	public static void saveProfile() {
 		profile.save(profilesDir(), currentName);
 	}
@@ -82,6 +145,8 @@ public final class ModelManager {
 			current = LoadedModel.builtin();
 			currentName = BUILTIN;
 			profile = ModelProfile.load(profilesDir(), BUILTIN, true);
+			adoptLegacySounds();
+			rebuildRig();
 			JetConfig.activeModel = BUILTIN;
 			JetConfig.save();
 			if (onDone != null) onDone.run();
@@ -95,15 +160,14 @@ public final class ModelManager {
 				MeshData mesh = ModelLoader.load(p);
 				LoadedModel lm = ModelBake.bake(name, mesh);
 				ModelProfile pr = ModelProfile.load(profilesDir(), name, false);
-				if (!Files.exists(profilesDir().resolve(ModelProfile.safe(name) + ".properties"))) {
-					pr.size = 8.3; // sensible first-time size; adjust in the editor
-				}
 				current = lm;
 				currentName = name;
 				profile = pr;
+				adoptLegacySounds();
+				rebuildRig();
 				JetConfig.activeModel = name;
 				JetConfig.save();
-				status = "Loaded " + name + " (" + (mesh.triangleCount()) + " triangles)";
+				status = "Loaded " + displayName(name) + " (" + mesh.triangleCount() + " triangles)";
 			} catch (UnsupportedFormatException e) {
 				status = e.getMessage();
 			} catch (Throwable e) {
@@ -169,6 +233,6 @@ public final class ModelManager {
 		} catch (IOException ignored) { }
 		ModelProfile.delete(profilesDir(), name);
 		select(BUILTIN, null);
-		status = "Removed " + name;
+		status = "Removed " + displayName(name);
 	}
 }

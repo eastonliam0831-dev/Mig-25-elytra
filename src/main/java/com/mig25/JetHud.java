@@ -104,8 +104,15 @@ public final class JetHud {
 		g.outline(cx + 10, by - 2, bw, 10, GREEN);
 		g.fill(cx + 12, by, cx + 12 + (int) ((bw - 4) * thr), by + 6, thr > 0.9f ? 0xFFFFAA33 : GREEN);
 
-		String mode = p.isFallFlying() ? "AIRBORNE" : "STANDBY";
-		g.text(mc.font, "MiG-25  " + mode, cx - mc.font.width("MiG-25  " + mode) / 2, h - 36, GREEN, false);
+		String planeName = ModelManager.displayName(ModelManager.currentName).toUpperCase();
+		String status = p.isFallFlying() ? planeName + "  AIRBORNE" : "AIRCRAFT  STANDBY";
+		g.text(mc.font, status, cx - mc.font.width(status) / 2, h - 36, GREEN, false);
+		if (JetState.gearVisible()) {
+			float gp = JetState.gearPos;
+			String gear = gp < 0.05f ? "GEAR  DOWN" : gp > 0.95f ? "GEAR  UP" : "GEAR  MOVING";
+			int gc = gp < 0.05f || gp > 0.95f ? DIM : 0xFFFFB000;
+			g.text(mc.font, gear, cx - mc.font.width(gear) / 2, 46, gc, false);
+		}
 		if (p.isFallFlying() && p.getY() < -44) {
 			g.text(mc.font, "PULL UP", cx - mc.font.width("PULL UP") / 2, cy + 44, RED, false);
 		}

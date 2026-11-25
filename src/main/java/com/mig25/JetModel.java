@@ -11,10 +11,12 @@ public final class JetModel {
 	public static final class Group {
 		public float[] v; // 8 floats per vertex: pos(3) normal(3) uv(2)
 		public int[] idx; // triangles
+		public int[] triPart; // optional: part id per triangle (index into the model's part names)
 		public int[] col; // optional ARGB per vertex (imported models); null = use the colour passed at draw time
 	}
 
 	public static Group[] groups = new Group[0];
+	public static java.util.List<String> partNames = new java.util.ArrayList<>();
 
 	private JetModel() {}
 
@@ -23,6 +25,8 @@ public final class JetModel {
 			if (in == null) throw new IllegalStateException("mig25.bin missing");
 			ByteBuffer b = ByteBuffer.wrap(new DataInputStream(in).readAllBytes()).order(ByteOrder.LITTLE_ENDIAN);
 			int n = b.getInt();
+			boolean v2 = n < 0;
+			if (v2) n = -n;
 			Group[] g = new Group[n];
 			for (int i = 0; i < n; i++) {
 				int vc = b.getInt(), tc = b.getInt(); // tc = triangle count
@@ -33,8 +37,24 @@ public final class JetModel {
 				gr.idx = new int[tc * 3];
 				b.asIntBuffer().get(gr.idx);
 				b.position(b.position() + tc * 12);
+				if (v2) {
+					gr.triPart = new int[tc];
+					b.asIntBuffer().get(gr.triPart);
+					b.position(b.position() + tc * 4);
+				}
 				g[i] = gr;
 			}
+			java.util.List<String> names = new java.util.ArrayList<>();
+			if (v2) {
+				int pc = b.getInt();
+				for (int i = 0; i < pc; i++) {
+					int len = b.getShort() & 0xFFFF;
+					byte[] sb = new byte[len];
+					b.get(sb);
+					names.add(new String(sb, java.nio.charset.StandardCharsets.UTF_8));
+				}
+			}
+			partNames = names;
 			groups = g;
 			System.out.println("[mig25] model loaded: " + n + " groups");
 		} catch (Throwable t) {

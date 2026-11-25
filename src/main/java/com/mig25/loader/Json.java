@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 /** Minimal JSON parser (objects -> Map, arrays -> List, numbers -> Double). No dependencies. */
-final class Json {
+public final class Json {
 	private final String s;
 	private int i;
 
@@ -14,7 +14,7 @@ final class Json {
 		this.s = s;
 	}
 
-	static Object parse(String text) {
+	public static Object parse(String text) {
 		Json j = new Json(text);
 		j.ws();
 		Object v = j.value();
@@ -91,24 +91,24 @@ final class Json {
 
 	// ---- typed helpers ----
 	@SuppressWarnings("unchecked")
-	static Map<String, Object> obj(Object o) {
+	public static Map<String, Object> obj(Object o) {
 		return o instanceof Map ? (Map<String, Object>) o : null;
 	}
 
 	@SuppressWarnings("unchecked")
-	static List<Object> arr(Object o) {
+	public static List<Object> arr(Object o) {
 		return o instanceof List ? (List<Object>) o : null;
 	}
 
-	static int intv(Object o, int def) {
+	public static int intv(Object o, int def) {
 		return o instanceof Double d ? d.intValue() : def;
 	}
 
-	static double num(Object o, double def) {
+	public static double num(Object o, double def) {
 		return o instanceof Double d ? d : def;
 	}
 
-	static double[] nums(Object o) {
+	public static double[] nums(Object o) {
 		List<Object> l = arr(o);
 		if (l == null) return null;
 		double[] r = new double[l.size()];

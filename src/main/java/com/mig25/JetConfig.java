@@ -21,6 +21,13 @@ public final class JetConfig {
 	public static boolean freeLook = true;
 	public static int freeLookSens = 1;
 	public static String activeModel = "builtin";
+	public static boolean autoDeploy = true;
+	public static boolean vaporTrails = true;
+	public static int trailSens = 1;
+	public static boolean machCone = true;
+	public static int machIdx = 1;
+	public static boolean shake = true;
+	public static int shakeIdx = 1;
 	public static int flameMode = 1; // 0 always, 1 while gliding, 2 off
 	public static String engineSound = "";
 	public static String flightSound = "";
@@ -33,11 +40,15 @@ public final class JetConfig {
 	public static int colorIndex = 0;
 
 	public static final double MODEL_LENGTH = 23.58; // model units (1 unit ~ 1 metre)
+	public static final double[] MACH_SPEEDS = {30, 45, 60, 80}; // blocks per second
+	public static final double[] TRAIL_G = {2.0, 1.2, 0.7};
+	public static final String[] SENS_NAMES = {"Low", "Medium", "High"};
+	public static final double[] SHAKE_AMP = {0.25, 0.6, 1.2};
 	public static final double[] VOLS = {0.25, 0.5, 0.75, 1.0, 1.5, 2.0};
 	public static final String[] FLAME_NAMES = {"Always", "While gliding", "Off"};
 	public static final double[] LOOK_SENS = {0.5, 1.0, 1.5, 2.0};
 	public static final double[] SIZES = {0.25, 0.35, 0.5, 0.75, 1.0};
-	public static final String[] GEAR_NAMES = {"Auto (down on ground only)", "Always down", "Removed"};
+	public static final String[] GEAR_NAMES = {"Auto (retract in flight)", "Always down", "Removed", "Retractable (key)"};
 	public static final String[] COLOR_NAMES = {"Green", "Amber", "Cyan", "White", "Red"};
 	public static final int[] COLORS = {0xFF33FF66, 0xFFFFB000, 0xFF33DDFF, 0xFFFFFFFF, 0xFFFF5555};
 
@@ -48,6 +59,7 @@ public final class JetConfig {
 		invertRoll = false; autoBank = true; pushAhead = true; freeLook = true; freeLookSens = 1;
 		sizeIndex = 2; gearMode = 0; colorIndex = 0; flameMode = 1;
 		engineOn = true; flightOn = true; engineVol = 3; flightVol = 3;
+		autoDeploy = true; vaporTrails = true; trailSens = 1; machCone = true; machIdx = 1; shake = true; shakeIdx = 1;
 		save();
 	}
 
@@ -63,8 +75,8 @@ public final class JetConfig {
 		return COLORS[Math.floorMod(colorIndex, COLORS.length)];
 	}
 
-	private static Path file() {
-		return FabricLoader.getInstance().getConfigDir().resolve("mig25.properties");
+	public static Path file() {
+		return FabricLoader.getInstance().getConfigDir().resolve("aerocraft").resolve("settings.properties");
 	}
 
 	private static boolean b(Properties p, String k, boolean d) {
@@ -98,6 +110,13 @@ public final class JetConfig {
 			freeLook = b(p, "freeLook", freeLook);
 			freeLookSens = Math.floorMod(i(p, "freeLookSens", freeLookSens), LOOK_SENS.length);
 			activeModel = p.getProperty("activeModel", activeModel);
+			autoDeploy = b(p, "autoDeploy", autoDeploy);
+			vaporTrails = b(p, "vaporTrails", vaporTrails);
+			trailSens = Math.floorMod(i(p, "trailSens", trailSens), TRAIL_G.length);
+			machCone = b(p, "machCone", machCone);
+			machIdx = Math.floorMod(i(p, "machIdx", machIdx), MACH_SPEEDS.length);
+			shake = b(p, "shake", shake);
+			shakeIdx = Math.floorMod(i(p, "shakeIdx", shakeIdx), SHAKE_AMP.length);
 			flameMode = Math.floorMod(i(p, "flameMode", flameMode), FLAME_NAMES.length);
 			engineSound = p.getProperty("engineSound", engineSound);
 			flightSound = p.getProperty("flightSound", flightSound);
@@ -127,6 +146,13 @@ public final class JetConfig {
 			p.setProperty("freeLook", String.valueOf(freeLook));
 			p.setProperty("freeLookSens", String.valueOf(freeLookSens));
 			p.setProperty("activeModel", activeModel);
+			p.setProperty("autoDeploy", String.valueOf(autoDeploy));
+			p.setProperty("vaporTrails", String.valueOf(vaporTrails));
+			p.setProperty("trailSens", String.valueOf(trailSens));
+			p.setProperty("machCone", String.valueOf(machCone));
+			p.setProperty("machIdx", String.valueOf(machIdx));
+			p.setProperty("shake", String.valueOf(shake));
+			p.setProperty("shakeIdx", String.valueOf(shakeIdx));
 			p.setProperty("flameMode", String.valueOf(flameMode));
 			p.setProperty("engineSound", engineSound);
 			p.setProperty("flightSound", flightSound);
@@ -137,8 +163,9 @@ public final class JetConfig {
 			p.setProperty("sizeIndex", String.valueOf(sizeIndex));
 			p.setProperty("gearMode", String.valueOf(gearMode));
 			p.setProperty("colorIndex", String.valueOf(colorIndex));
+			Files.createDirectories(file().getParent());
 			try (OutputStream out = Files.newOutputStream(file())) {
-				p.store(out, "MiG-25 Elytra settings");
+				p.store(out, "AeroCraft Elytra settings");
 			}
 		} catch (Throwable t) {
 			System.err.println("[mig25] could not save config: " + t);

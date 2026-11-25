@@ -132,6 +132,7 @@ final class ThreeMfLoader {
 	}
 
 	private void emitMesh(Element obj, Element mesh, double[] m) {
+		out.setPart(obj.getAttribute("name").isEmpty() ? "object" + obj.getAttribute("id") : obj.getAttribute("name"));
 		NodeList vs = mesh.getElementsByTagName("vertex");
 		double[][] v = new double[vs.getLength()][];
 		for (int i = 0; i < v.length; i++) {

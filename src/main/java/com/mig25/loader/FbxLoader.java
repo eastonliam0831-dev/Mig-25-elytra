@@ -108,6 +108,10 @@ final class FbxLoader {
 			double[] v = toDoubles(verts.props.get(0));
 			int[] pi = toInts(idx.props.get(0));
 			Long owner = geomOwner.get(g.getKey());
+			Node ownerNode = owner == null ? null : models.get(owner);
+			Node nameSrc = ownerNode != null ? ownerNode : g.getValue();
+			String partName = nameSrc.props.size() > 1 && nameSrc.props.get(1) instanceof String ps ? ps.split("\u0000")[0] : "mesh";
+			out.setPart(partName);
 			double[] world = owner == null ? Mat4.identity() : world(owner, models, modelParent, 0);
 			int color = owner != null && modelColor.containsKey(owner) ? modelColor.get(owner) : MeshData.DEFAULT_GREY;
 			List<Integer> poly = new ArrayList<>();

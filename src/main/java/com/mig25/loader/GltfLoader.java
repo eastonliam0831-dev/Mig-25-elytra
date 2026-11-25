@@ -85,13 +85,19 @@ final class GltfLoader {
 			roots = Json.arr(sc.get("nodes"));
 		}
 		if (roots == null) {
-			for (int i = 0; i < nodes.size(); i++) walk(i, Mat4.identity(), 0);
+			for (int i = 0; i < nodes.size(); i++) walk(i, Mat4.identity(), 0, "mesh");
 		} else {
-			for (Object r : roots) walk(Json.intv(r, 0), Mat4.identity(), 0);
+			for (Object r : roots) walk(Json.intv(r, 0), Mat4.identity(), 0, "mesh");
 		}
 	}
 
-	private void walk(int idx, double[] parent, int depth) throws UnsupportedFormatException {
+	private static final java.util.regex.Pattern GENERIC = java.util.regex.Pattern.compile("^(Object|Mesh|Node|Cube|Sketchfab_model|root)[_.]?\\d*$");
+
+	private static String clean(String name) {
+		return name.replaceAll("_\\d+$", "");
+	}
+
+	private void walk(int idx, double[] parent, int depth, String inherited) throws UnsupportedFormatException {
 		if (depth > 64) return;
 		List<Object> nodes = Json.arr(json.get("nodes"));
 		Map<String, Object> n = Json.obj(nodes.get(idx));
@@ -107,15 +113,18 @@ final class GltfLoader {
 					s != null ? s : new double[] {1, 1, 1});
 		}
 		double[] world = Mat4.mul(parent, local);
-		if (n.get("mesh") != null) addMesh(Json.intv(n.get("mesh"), 0), world);
+		String own = n.get("name") instanceof String nn ? nn : "";
+		String eff = own.isBlank() || GENERIC.matcher(own).matches() ? inherited : clean(own);
+		if (n.get("mesh") != null) addMesh(Json.intv(n.get("mesh"), 0), world, eff);
 		List<Object> kids = Json.arr(n.get("children"));
-		if (kids != null) for (Object k : kids) walk(Json.intv(k, 0), world, depth + 1);
+		if (kids != null) for (Object k : kids) walk(Json.intv(k, 0), world, depth + 1, eff);
 	}
 
-	private void addMesh(int meshIdx, double[] world) throws UnsupportedFormatException {
+	private void addMesh(int meshIdx, double[] world, String nodeName) throws UnsupportedFormatException {
 		Map<String, Object> mesh = Json.obj(Json.arr(json.get("meshes")).get(meshIdx));
 		List<Object> prims = Json.arr(mesh.get("primitives"));
 		if (prims == null) return;
+		int primNo = 0;
 		for (Object po : prims) {
 			Map<String, Object> p = Json.obj(po);
 			if (Json.intv(p.get("mode"), 4) != 4) continue;
@@ -132,6 +141,10 @@ final class GltfLoader {
 				for (int i = 0; i < idx.length; i++) idx[i] = i;
 			}
 			int color = materialColor(p.get("material"));
+			String base = nodeName != null && !nodeName.isBlank() ? nodeName
+					: (mesh.get("name") instanceof String mn && !mn.isBlank() ? mn : "mesh" + meshIdx);
+			this.mesh.setPart(prims.size() > 1 ? base + "#" + primNo : base);
+			primNo++;
 			double[] a, b, c;
 			for (int i = 0; i + 2 < idx.length; i += 3) {
 				int i0 = idx[i] * 3, i1 = idx[i + 1] * 3, i2 = idx[i + 2] * 3;

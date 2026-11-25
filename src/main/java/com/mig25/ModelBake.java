@@ -36,6 +36,7 @@ public final class ModelBake {
 		g.v = new float[n * 8];
 		g.idx = new int[n];
 		g.col = c;
+		g.triPart = m.partIds();
 		for (int t = 0; t < n; t += 3) {
 			float ax = p[t * 3] - cx, ay = p[t * 3 + 1] - cy, az = p[t * 3 + 2] - cz;
 			float bx = p[t * 3 + 3] - cx, by = p[t * 3 + 4] - cy, bz = p[t * 3 + 5] - cz;
@@ -54,6 +55,6 @@ public final class ModelBake {
 				g.idx[t + k] = t + k;
 			}
 		}
-		return new LoadedModel(name, false, new JetModel.Group[] {g}, longest);
+		return new LoadedModel(name, false, new JetModel.Group[] {g}, new java.util.ArrayList<>(m.partNames()), longest);
 	}
 }

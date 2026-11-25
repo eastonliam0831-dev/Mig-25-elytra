@@ -56,6 +56,8 @@ final class UsdzLoader {
 		for (String block : text.split("def Mesh")) {
 			Matcher mp = POINTS.matcher(block), mc = COUNTS.matcher(block), mi = INDICES.matcher(block);
 			if (!mp.find() || !mc.find() || !mi.find()) continue;
+			Matcher nm = Pattern.compile("^\\s*\"([^\"]*)\"").matcher(block);
+			out.setPart(nm.find() ? nm.group(1) : "mesh");
 			List<double[]> pts = new ArrayList<>();
 			Matcher t = TUPLE.matcher(mp.group(1));
 			while (t.find()) {

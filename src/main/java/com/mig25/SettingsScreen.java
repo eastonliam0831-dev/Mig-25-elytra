@@ -1,175 +1,225 @@
 package com.mig25;
 
-import java.util.function.Supplier;
+import java.util.List;
 
-import net.minecraft.ChatFormatting;
-import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
 
-/** Tabbed control panel: Jet / HUD / Camera / Flight. Opened with the settings key (default J). */
-public class SettingsScreen extends Screen {
-	private static final String[] TABS = {"Jet", "Model", "Sound", "HUD", "Camera", "Flight"};
+/** AeroCraft Elytra control panel: Tactical Glass sidebar UI with a live hangar preview. */
+public class SettingsScreen extends TacticalScreen {
+	private static final String[] TABS = {"Aircraft", "Hangar", "Sound", "HUD", "Camera", "Flight"};
 	private static int tab = 0;
+	private static int listScroll = 0;
 
-	private final Screen parent;
+	private int px, py, pw, ph;
+	private int cx0, cy0, cw, ch;
+	private int viewX, viewY, viewW, viewH;
 	private int slot;
-	private int cx;
 
 	public SettingsScreen(Screen parent) {
-		super(Component.literal("MiG-25 Elytra Settings"));
-		this.parent = parent;
+		super("AeroCraft Elytra Control Panel", parent);
 	}
 
-	// ---- label helpers ----
-	private static MutableComponent onOff(String name, boolean on) {
-		return Component.literal(name + ": ").withStyle(ChatFormatting.WHITE)
-				.append(Component.literal(on ? "ON" : "OFF").withStyle(on ? ChatFormatting.GREEN : ChatFormatting.RED, ChatFormatting.BOLD));
+	private void reopen() {
+		open(this.minecraft, new SettingsScreen(parent));
 	}
 
-	private static MutableComponent value(String name, String v) {
-		return Component.literal(name + ": ").withStyle(ChatFormatting.WHITE)
-				.append(Component.literal(v).withStyle(ChatFormatting.YELLOW));
+	// ------------------------------------------------------------ layout helpers
+	private int colW() {
+		return (cw - 8) / 2;
 	}
 
-	private void place(Supplier<MutableComponent> label, Runnable click) {
-		int col = slot % 2;
-		int row = slot / 2;
+	private int nextX() {
+		return cx0 + (slot % 2) * (colW() + 8);
+	}
+
+	private int nextY() {
+		return cy0 + (slot / 2) * 24;
+	}
+
+	private void toggleRow(String name, java.util.function.BooleanSupplier get, Runnable flip) {
+		toggle(nextX(), nextY(), colW(), name, get, flip);
 		slot++;
-		int x = col == 0 ? cx - 150 : cx + 4;
-		int y = 64 + row * 24;
-		Button btn = Button.builder(label.get(), b -> {
-			click.run();
-			JetConfig.save();
-			b.setMessage(label.get());
-		}).bounds(x, y, 146, 20).build();
-		this.addRenderableWidget(btn);
 	}
 
-	private void toggle(String name, Supplier<Boolean> get, Runnable flip) {
-		place(() -> onOff(name, get.get()), flip);
+	private void valueRow(String name, java.util.function.Supplier<String> val, Runnable next) {
+		value(nextX(), nextY(), colW(), name, val, next);
+		slot++;
 	}
 
-	private void cycle(String name, Supplier<String> get, Runnable next) {
-		place(() -> value(name, get.get()), next);
+	private void buttonRow(String name, Runnable r) {
+		button(nextX(), nextY(), colW(), 20, name, r);
+		slot++;
 	}
 
-	private void label(String text, int y, ChatFormatting color) {
-		Button b = Button.builder(Component.literal(text).withStyle(color), x -> {})
-				.bounds(cx - 150, y, 300, 20).build();
-		b.active = false;
-		this.addRenderableWidget(b);
+	private void skipToNewRow() {
+		if (slot % 2 == 1) slot++;
 	}
 
+	// ------------------------------------------------------------ build
 	@Override
 	protected void init() {
-		cx = this.width / 2;
+		pw = Math.min(this.width - 24, 620);
+		ph = Math.min(this.height - 24, 340);
+		px = (this.width - pw) / 2;
+		py = (this.height - ph) / 2;
+		cx0 = px + 110;
+		cy0 = py + 38;
+		cw = pw - 118;
+		ch = ph - 38 - 40;
 		slot = 0;
-
-		label("MiG-25 Elytra  -  Control Panel", 10, ChatFormatting.GOLD);
 
 		for (int i = 0; i < TABS.length; i++) {
 			final int idx = i;
-			MutableComponent text = Component.literal(i == tab ? "> " + TABS[i] + " <" : TABS[i])
-					.withStyle(i == tab ? ChatFormatting.YELLOW : ChatFormatting.GRAY);
-			this.addRenderableWidget(Button.builder(text, b -> {
-				if (idx != tab) {
+			Ui t = add(px + 8, py + 38 + i * 26, 92, 22, STYLE_TAB, () -> TABS[idx], () -> {
+				if (tab != idx) {
 					tab = idx;
-					open(this.minecraft, new SettingsScreen(parent));
+					reopen();
 				}
-			}).bounds(cx - 150 + i * 51, 34, 48, 20).build());
+			});
+			t.selected = () -> tab == idx;
 		}
+		add(px + pw - 24, py + 5, 18, 16, STYLE_DANGER, () -> "x", this::onClose);
 
 		switch (tab) {
-			case 0 -> {
-				toggle("Jet model", () -> JetConfig.enabled, () -> JetConfig.enabled = !JetConfig.enabled);
-				cycle("Trigger", () -> JetConfig.onlyGliding ? "while gliding" : "elytra worn",
-						() -> JetConfig.onlyGliding = !JetConfig.onlyGliding);
-				cycle("Landing gear", () -> JetConfig.GEAR_NAMES[JetConfig.gearMode],
-						() -> JetConfig.gearMode = (JetConfig.gearMode + 1) % JetConfig.GEAR_NAMES.length);
-				cycle("Afterburners", () -> JetConfig.FLAME_NAMES[JetConfig.flameMode],
-						() -> JetConfig.flameMode = (JetConfig.flameMode + 1) % JetConfig.FLAME_NAMES.length);
-				label("Size, rotation and flame positions: Model tab > Open editor", 64 + 2 * 24 + 4, ChatFormatting.AQUA);
-			}
-			case 1 -> {
-				place(() -> value("Model", ModelManager.currentName), () -> {
-					java.util.List<String> names = ModelManager.list();
-					int i = names.indexOf(ModelManager.currentName);
-					String next = names.get((i + 1) % names.size());
-					ModelManager.select(next, () -> open(this.minecraft, new SettingsScreen(parent)));
-				});
-				place(() -> Component.literal("Import model...").withStyle(ChatFormatting.GREEN), () ->
-						FilePicker.pick("Import a 3D model (OBJ STL GLB GLTF DAE 3MF FBX USDZ)", path ->
-								ModelManager.importFile(path, () -> open(this.minecraft, new SettingsScreen(parent)))));
-				place(() -> Component.literal("Open editor").withStyle(ChatFormatting.GOLD),
-						() -> open(this.minecraft, new ModelEditorScreen(new SettingsScreen(parent))));
-				place(() -> Component.literal("Remove this model").withStyle(ChatFormatting.RED), () -> {
-					ModelManager.removeCurrent();
-					open(this.minecraft, new SettingsScreen(parent));
-				});
-				String st = ModelManager.status == null ? "" : ModelManager.status;
-				if (st.isEmpty()) st = "Reads OBJ STL GLB GLTF DAE 3MF FBX USDZ.  STEP/IGES/BLEND: export to GLB first.";
-				int cut = st.length() <= 62 ? st.length() : Math.max(st.lastIndexOf(' ', 62), 40);
-				label(st.substring(0, Math.min(cut, st.length())), 64 + 2 * 24 + 4, ChatFormatting.AQUA);
-				if (cut < st.length()) label(st.substring(cut).trim(), 64 + 3 * 24 + 4, ChatFormatting.AQUA);
-				label("Or copy files into: config/mig25/models  (then reopen this menu)", 64 + 4 * 24 + 4, ChatFormatting.DARK_GRAY);
-			}
-			case 2 -> {
-				toggle("Engine sound", () -> JetConfig.engineOn, () -> JetConfig.engineOn = !JetConfig.engineOn);
-				cycle("Engine volume", () -> Math.round(JetConfig.VOLS[JetConfig.engineVol] * 100) + "%",
-						() -> JetConfig.engineVol = (JetConfig.engineVol + 1) % JetConfig.VOLS.length);
-				place(() -> Component.literal("Import engine sound...").withStyle(ChatFormatting.GREEN), () ->
-						FilePicker.pick("Import ENGINE sound (WAV or OGG)", path -> importSound(path, true)));
-				place(() -> Component.literal("Clear engine sound").withStyle(ChatFormatting.RED), () -> {
-					JetConfig.engineSound = "";
-					JetAudio.reload();
-				});
-				toggle("Flight sound", () -> JetConfig.flightOn, () -> JetConfig.flightOn = !JetConfig.flightOn);
-				cycle("Flight volume", () -> Math.round(JetConfig.VOLS[JetConfig.flightVol] * 100) + "%",
-						() -> JetConfig.flightVol = (JetConfig.flightVol + 1) % JetConfig.VOLS.length);
-				place(() -> Component.literal("Import flight sound...").withStyle(ChatFormatting.GREEN), () ->
-						FilePicker.pick("Import FLIGHT / wind sound (WAV or OGG)", path -> importSound(path, false)));
-				place(() -> Component.literal("Clear flight sound").withStyle(ChatFormatting.RED), () -> {
-					JetConfig.flightSound = "";
-					JetAudio.reload();
-				});
-				label("Engine: " + (JetConfig.engineSound.isEmpty() ? "(none)" : JetConfig.engineSound)
-						+ "   Flight: " + (JetConfig.flightSound.isEmpty() ? "(none)" : JetConfig.flightSound), 64 + 4 * 24 + 4, ChatFormatting.AQUA);
-				label("WAV and OGG only. Engine loops while the jet is on; flight loops while gliding.", 64 + 5 * 24 + 4, ChatFormatting.DARK_GRAY);
-			}
-			case 3 -> {
-				toggle("Fighter HUD", () -> JetConfig.hud, () -> JetConfig.hud = !JetConfig.hud);
-				cycle("HUD colour", () -> JetConfig.COLOR_NAMES[JetConfig.colorIndex],
-						() -> JetConfig.colorIndex = (JetConfig.colorIndex + 1) % JetConfig.COLORS.length);
-			}
-			case 4 -> {
-				toggle("Auto third person", () -> JetConfig.forceThirdPerson,
-						() -> JetConfig.forceThirdPerson = !JetConfig.forceThirdPerson);
-				toggle("Jet ahead of camera", () -> JetConfig.pushAhead, () -> JetConfig.pushAhead = !JetConfig.pushAhead);
-				toggle("Free look", () -> JetConfig.freeLook, () -> JetConfig.freeLook = !JetConfig.freeLook);
-				cycle("Look speed", () -> String.format("%d%%", Math.round(JetConfig.LOOK_SENS[JetConfig.freeLookSens] * 100)),
-						() -> JetConfig.freeLookSens = (JetConfig.freeLookSens + 1) % JetConfig.LOOK_SENS.length);
-				label("Hold the Free Look key (default Left Alt) and move the mouse", 64 + 2 * 24 + 4, ChatFormatting.AQUA);
-			}
-			default -> {
-				toggle("Barrel Roll mod", () -> JetConfig.barrelRoll, () -> JetConfig.barrelRoll = !JetConfig.barrelRoll);
-				toggle("Invert roll", () -> JetConfig.invertRoll, () -> JetConfig.invertRoll = !JetConfig.invertRoll);
-				toggle("Bank when turning", () -> JetConfig.autoBank, () -> JetConfig.autoBank = !JetConfig.autoBank);
-			}
+			case 0 -> aircraftTab();
+			case 1 -> hangarTab();
+			case 2 -> soundTab();
+			case 3 -> hudTab();
+			case 4 -> cameraTab();
+			default -> flightTab();
 		}
 
-		label("Settings key: J    |    Free look: hold Left Alt    (rebind in Controls)", this.height - 56, ChatFormatting.DARK_GRAY);
-
-		this.addRenderableWidget(Button.builder(Component.literal("Reset all").withStyle(ChatFormatting.RED), b -> {
+		add(cx0, py + ph - 30, 110, 20, STYLE_DANGER, () -> "Reset all", () -> {
 			JetConfig.reset();
-			open(this.minecraft, new SettingsScreen(parent));
-		}).bounds(cx - 150, this.height - 30, 146, 20).build());
-		this.addRenderableWidget(Button.builder(Component.literal("Done").withStyle(ChatFormatting.GREEN), b -> this.onClose())
-				.bounds(cx + 4, this.height - 30, 146, 20).build());
+			reopen();
+		});
+		add(cx0 + cw - 110, py + ph - 30, 110, 20, STYLE_PRIMARY, () -> "Done", this::onClose);
 	}
 
-	/** Copies an imported sound into config/mig25/sounds as engine.<ext> or flight.<ext>. */
+	private void aircraftTab() {
+		toggleRow("Aircraft model", () -> JetConfig.enabled, () -> JetConfig.enabled = !JetConfig.enabled);
+		valueRow("Trigger", () -> JetConfig.onlyGliding ? "while gliding" : "elytra worn", () -> JetConfig.onlyGliding = !JetConfig.onlyGliding);
+		valueRow("Landing gear", () -> JetConfig.GEAR_NAMES[JetConfig.gearMode],
+				() -> JetConfig.gearMode = (JetConfig.gearMode + 1) % JetConfig.GEAR_NAMES.length);
+		toggleRow("Auto-deploy near ground", () -> JetConfig.autoDeploy, () -> JetConfig.autoDeploy = !JetConfig.autoDeploy);
+		valueRow("Afterburners", () -> JetConfig.FLAME_NAMES[JetConfig.flameMode],
+				() -> JetConfig.flameMode = (JetConfig.flameMode + 1) % JetConfig.FLAME_NAMES.length);
+		toggleRow("Wingtip vapor trails", () -> JetConfig.vaporTrails, () -> JetConfig.vaporTrails = !JetConfig.vaporTrails);
+		valueRow("Trail sensitivity", () -> JetConfig.SENS_NAMES[JetConfig.trailSens],
+				() -> JetConfig.trailSens = (JetConfig.trailSens + 1) % JetConfig.TRAIL_G.length);
+		toggleRow("Supersonic Mach cone", () -> JetConfig.machCone, () -> JetConfig.machCone = !JetConfig.machCone);
+		valueRow("Mach cone speed", () -> Math.round(JetConfig.MACH_SPEEDS[JetConfig.machIdx]) + " blocks/s",
+				() -> JetConfig.machIdx = (JetConfig.machIdx + 1) % JetConfig.MACH_SPEEDS.length);
+		text(cx0, cy0 + ch - 24, DIM, "Gear lever: G (rebind in Controls) - works in Retractable mode");
+		text(cx0, cy0 + ch - 12, DIM, "Every aircraft keeps its own size, flames, flaps, gear and sounds.");
+	}
+
+	private void hangarTab() {
+		int listW = 150;
+		text(cx0, cy0, accent(), "AIRCRAFT LIBRARY");
+		List<String> names = ModelManager.list();
+		int rowH = 20;
+		int fixedBottom = 22 + 3 * 22 + 4; // scroll row + three action buttons
+		int visible = Math.max(3, (ch - 14 - fixedBottom) / (rowH + 2));
+		listScroll = Math.max(0, Math.min(listScroll, Math.max(0, names.size() - visible)));
+		for (int i = 0; i < visible; i++) {
+			int idx = listScroll + i;
+			if (idx >= names.size()) break;
+			final String name = names.get(idx);
+			Ui u = add(cx0, cy0 + 14 + i * (rowH + 2), listW, rowH, STYLE_ROW, () -> ModelManager.displayName(name), () -> {
+				HangarPreview.resetTests();
+				ModelManager.select(name, this::reopen);
+			});
+			u.selected = () -> name.equals(ModelManager.currentName);
+		}
+		int by = cy0 + 14 + visible * (rowH + 2) + 2;
+		int half = (listW - 4) / 2;
+		button(cx0, by, half, 20, "Up", () -> { listScroll = Math.max(0, listScroll - visible); reopen(); });
+		button(cx0 + half + 4, by, half, 20, "Down", () -> { listScroll = Math.min(Math.max(0, names.size() - visible), listScroll + visible); reopen(); });
+		add(cx0, by + 22, listW, 20, STYLE_BUTTON, () -> "Import aircraft...", () ->
+				FilePicker.pick("Import a 3D aircraft (GLB OBJ STL GLTF DAE 3MF FBX USDZ)", path ->
+						ModelManager.importFile(path, this::reopen)));
+		add(cx0, by + 44, listW, 20, STYLE_PRIMARY, () -> "Open editor", () ->
+				open(this.minecraft, new ModelEditorScreen(new SettingsScreen(parent))));
+		Ui rm = add(cx0, by + 66, listW, 20, STYLE_DANGER, () -> "Remove aircraft", () -> {
+			ModelManager.removeCurrent();
+			reopen();
+		});
+		rm.enabled = !ModelManager.BUILTIN.equals(ModelManager.currentName);
+
+		// preview viewport + test controls
+		viewX = cx0 + listW + 8;
+		viewY = cy0;
+		viewW = cw - listW - 8;
+		viewH = ch - 50;
+		int ty = viewY + viewH + 4;
+		int bw = (viewW - 12) / 4;
+		testBtn(viewX, ty, bw, "Roll <", () -> HangarPreview.tRoll == -1f, () -> HangarPreview.tRoll = HangarPreview.tRoll == -1f ? 0f : -1f);
+		testBtn(viewX + (bw + 4), ty, bw, "Roll >", () -> HangarPreview.tRoll == 1f, () -> HangarPreview.tRoll = HangarPreview.tRoll == 1f ? 0f : 1f);
+		testBtn(viewX + 2 * (bw + 4), ty, bw, "Pitch up", () -> HangarPreview.tPitch == 1f, () -> HangarPreview.tPitch = HangarPreview.tPitch == 1f ? 0f : 1f);
+		testBtn(viewX + 3 * (bw + 4), ty, bw, "Pitch dn", () -> HangarPreview.tPitch == -1f, () -> HangarPreview.tPitch = HangarPreview.tPitch == -1f ? 0f : -1f);
+		int ty2 = ty + 22;
+		testBtn(viewX, ty2, bw, "Yaw <", () -> HangarPreview.tYaw == -1f, () -> HangarPreview.tYaw = HangarPreview.tYaw == -1f ? 0f : -1f);
+		testBtn(viewX + (bw + 4), ty2, bw, "Yaw >", () -> HangarPreview.tYaw == 1f, () -> HangarPreview.tYaw = HangarPreview.tYaw == 1f ? 0f : 1f);
+		testBtn(viewX + 2 * (bw + 4), ty2, bw, "Airbrake", () -> HangarPreview.tBrake > 0.5f, () -> HangarPreview.tBrake = HangarPreview.tBrake > 0.5f ? 0f : 1f);
+		testBtn(viewX + 3 * (bw + 4), ty2, bw, "Gear", () -> HangarPreview.gearUp, () -> HangarPreview.gearUp = !HangarPreview.gearUp);
+		String st = ModelManager.status == null ? "" : ModelManager.status;
+		if (!st.isEmpty()) text(cx0 + 120, py + ph - 24, DIM, st.length() > 70 ? st.substring(0, 70) : st);
+	}
+
+	private void testBtn(int x, int y, int w, String label, java.util.function.BooleanSupplier on, Runnable r) {
+		Ui u = add(x, y, w, 20, STYLE_BUTTON, () -> label, r);
+		u.selected = on;
+	}
+
+	private void soundTab() {
+		ModelProfile pr = ModelManager.profile;
+		text(cx0, cy0, accent(), "SOUNDS FOR: " + ModelManager.displayName(ModelManager.currentName).toUpperCase());
+		slot = 2; // leave the first row for the heading
+		toggleRow("Engine sound", () -> JetConfig.engineOn, () -> JetConfig.engineOn = !JetConfig.engineOn);
+		valueRow("Engine volume", () -> Math.round(JetConfig.VOLS[JetConfig.engineVol] * 100) + "%",
+				() -> JetConfig.engineVol = (JetConfig.engineVol + 1) % JetConfig.VOLS.length);
+		buttonRow("Import engine sound...", () -> FilePicker.pick("Import ENGINE sound (WAV or OGG)", path -> importSound(path, true)));
+		buttonRow("Clear engine sound", () -> { pr.engineSound = ""; ModelManager.saveProfile(); JetAudio.reload(); });
+		toggleRow("Flight sound", () -> JetConfig.flightOn, () -> JetConfig.flightOn = !JetConfig.flightOn);
+		valueRow("Flight volume", () -> Math.round(JetConfig.VOLS[JetConfig.flightVol] * 100) + "%",
+				() -> JetConfig.flightVol = (JetConfig.flightVol + 1) % JetConfig.VOLS.length);
+		buttonRow("Import flight sound...", () -> FilePicker.pick("Import FLIGHT / wind sound (WAV or OGG)", path -> importSound(path, false)));
+		buttonRow("Clear flight sound", () -> { pr.flightSound = ""; ModelManager.saveProfile(); JetAudio.reload(); });
+		text(cx0, cy0 + ch - 36, TEXT, false, () -> "Engine: " + (pr.engineSound.isEmpty() ? "(none)" : pr.engineSound)
+				+ "    Flight: " + (pr.flightSound.isEmpty() ? "(none)" : pr.flightSound));
+		text(cx0, cy0 + ch - 24, DIM, "WAV and OGG only. Saved per aircraft in its profile.");
+		String st = ModelManager.status == null ? "" : ModelManager.status;
+		if (!st.isEmpty()) text(cx0, cy0 + ch - 12, DIM, st.length() > 80 ? st.substring(0, 80) : st);
+	}
+
+	private void hudTab() {
+		toggleRow("Fighter HUD", () -> JetConfig.hud, () -> JetConfig.hud = !JetConfig.hud);
+		valueRow("HUD colour", () -> JetConfig.COLOR_NAMES[JetConfig.colorIndex],
+				() -> JetConfig.colorIndex = (JetConfig.colorIndex + 1) % JetConfig.COLORS.length);
+		text(cx0, cy0 + ch - 12, DIM, "The HUD colour also tints this whole panel.");
+	}
+
+	private void cameraTab() {
+		toggleRow("Auto third person", () -> JetConfig.forceThirdPerson, () -> JetConfig.forceThirdPerson = !JetConfig.forceThirdPerson);
+		toggleRow("Aircraft ahead of camera", () -> JetConfig.pushAhead, () -> JetConfig.pushAhead = !JetConfig.pushAhead);
+		toggleRow("Free look", () -> JetConfig.freeLook, () -> JetConfig.freeLook = !JetConfig.freeLook);
+		valueRow("Look speed", () -> Math.round(JetConfig.LOOK_SENS[JetConfig.freeLookSens] * 100) + "%",
+				() -> JetConfig.freeLookSens = (JetConfig.freeLookSens + 1) % JetConfig.LOOK_SENS.length);
+		toggleRow("Speed shake", () -> JetConfig.shake, () -> JetConfig.shake = !JetConfig.shake);
+		valueRow("Shake strength", () -> JetConfig.SENS_NAMES[JetConfig.shakeIdx],
+				() -> JetConfig.shakeIdx = (JetConfig.shakeIdx + 1) % JetConfig.SHAKE_AMP.length);
+		text(cx0, cy0 + ch - 12, DIM, "Hold Free Look (default Left Alt) and move the mouse to orbit the camera.");
+	}
+
+	private void flightTab() {
+		toggleRow("Barrel Roll mod support", () -> JetConfig.barrelRoll, () -> JetConfig.barrelRoll = !JetConfig.barrelRoll);
+		toggleRow("Invert roll", () -> JetConfig.invertRoll, () -> JetConfig.invertRoll = !JetConfig.invertRoll);
+		toggleRow("Bank when turning", () -> JetConfig.autoBank, () -> JetConfig.autoBank = !JetConfig.autoBank);
+	}
+
+	/** Copies an imported sound into config/aerocraft/sounds for the active aircraft. */
 	private void importSound(java.nio.file.Path src, boolean engine) {
 		try {
 			String n = src.getFileName().toString();
@@ -179,17 +229,59 @@ public class SettingsScreen extends Screen {
 				ModelManager.status = "Sounds must be .wav or .ogg (convert MP3 first)";
 			} else {
 				java.nio.file.Files.createDirectories(ModelManager.soundsDir());
-				String target = (engine ? "engine" : "flight") + ext;
+				String target = ModelProfile.safe(ModelManager.currentName) + (engine ? "-engine" : "-flight") + ext;
 				java.nio.file.Files.copy(src, ModelManager.soundsDir().resolve(target), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-				if (engine) JetConfig.engineSound = target; else JetConfig.flightSound = target;
-				JetConfig.save();
+				if (engine) ModelManager.profile.engineSound = target; else ModelManager.profile.flightSound = target;
+				ModelManager.saveProfile();
 				JetAudio.reload();
-				ModelManager.status = "Imported " + n + " as " + target;
+				ModelManager.status = "Imported " + n;
 			}
 		} catch (Exception e) {
 			ModelManager.status = "Sound import failed: " + e;
 		}
-		open(this.minecraft, new SettingsScreen(parent));
+		reopen();
+	}
+
+	// ------------------------------------------------------------ drawing
+	@Override
+	protected void drawBackdrop(GuiGraphicsExtractor g) {
+		g.fill(0, 0, this.width, this.height, 0xA0050810);
+	}
+
+	@Override
+	protected void drawChrome(GuiGraphicsExtractor g, int mx, int my) {
+		int ac = accent();
+		panel(g, px, py, pw, ph, 0xE00A1017, true);
+		g.fill(px + 1, py + 1, px + pw - 1, py + 28, 0xF0070B11);
+		g.horizontalLine(px + 1, px + pw - 2, py + 28, alpha(ac, 0x90));
+		var font = this.minecraft.font;
+		g.text(font, "AEROCRAFT ELYTRA", px + 10, py + 10, ac, false);
+		g.text(font, "CONTROL PANEL", px + 20 + font.width("AEROCRAFT ELYTRA"), py + 10, DIM, false);
+		// sidebar and content wells
+		g.fill(px + 4, py + 34, px + 104, py + ph - 4, 0x90050A10);
+		g.outline(px + 4, py + 34, 100, ph - 38, alpha(ac, 0x30));
+		g.fill(cx0 - 4, cy0 - 4, cx0 + cw + 4, py + ph - 36, 0x60060A10);
+		g.outline(cx0 - 4, cy0 - 4, cw + 8, py + ph - 36 - cy0 + 4, alpha(ac, 0x28));
+	}
+
+	@Override
+	protected void drawExtras(GuiGraphicsExtractor g, int mx, int my) {
+		if (tab == 1) {
+			int ac = accent();
+			g.fill(viewX, viewY, viewX + viewW, viewY + viewH, 0xE0040810);
+			g.outline(viewX, viewY, viewW, viewH, alpha(ac, 0x90));
+			HangarPreview.draw(g, viewX, viewY, viewW, viewH, ac);
+		}
+	}
+
+	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+		if (tab == 1) {
+			int before = listScroll;
+			listScroll = Math.max(0, listScroll - (int) Math.signum(scrollY));
+			if (before != listScroll) reopen();
+			return true;
+		}
+		return false;
 	}
 
 	@Override

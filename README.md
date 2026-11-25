@@ -1,26 +1,27 @@
-# MiG-25 Elytra (Fabric, 26.3, client-side only)
-Wear an elytra -> you become a jet, third person, fighter HUD. Everything is client side.
+# AeroCraft Elytra (Fabric, Minecraft 26.3, client-side only)
+Wear an elytra and fly a rigged 3D aircraft: third person, fighter HUD, flaps and landing gear that move,
+afterburners, vapor trails, a Mach cone and camera shake. Nothing is sent to the server.
 
-## Keys (rebind in Controls)
-- **J** - settings menu (tabs: Jet, Model, Sound, HUD, Camera, Flight)
-- **Left Alt (hold)** - free look: orbit the camera around the jet without steering it
+## Keys (rebind in Controls, category "AeroCraft Elytra")
+- **J** - Control Panel (tabs: Aircraft, Hangar, Sound, HUD, Camera, Flight)
+- **G** - landing gear lever (Retractable mode)
+- **Left Alt (hold)** - free look
 
-## Your own models
-Model tab > **Import model...** (opens a normal file window) or copy files into `config/mig25/models`.
-Reads: **OBJ, STL, GLB, glTF, DAE, 3MF, FBX (binary), USDZ (text .usda inside)**.
-Colours come from the model's materials (textures are averaged into one colour). Up to 200,000 triangles.
-STEP / IGES / BLEND cannot be read inside the game: export them as GLB/OBJ/STL first
-(Blender: File > Export > glTF 2.0; FreeCAD/Fusion: export STL or OBJ).
+## Hangar
+`config/aerocraft/models` holds your aircraft (the old `config/mig25` folder is copied there automatically).
+Reads GLB, glTF, OBJ, STL, DAE, 3MF, binary FBX, USDZ (text). STEP/IGES/BLEND: export to GLB/STL first.
+The Hangar tab lists every aircraft; click one to fly it right away. The hologram viewport lets you test the
+flaps, rudder, airbrake and gear.
 
-## Editor (Model tab > Open editor)
-- **Shape**: size in blocks, rotate X/Y/Z, move, Flip nose. The jet keeps rendering live behind the panel
-  (Options > Video Settings > Menu Background Blur = 0 gives a sharp preview). `<` `>` `Up` `Dn` spin the preview.
-- **Flames**: Add / Mirror / Remove afterburners, set position (percent of the jet's length), length, width, colour.
-Every model has its own profile in `config/mig25/profiles`.
+## Per-aircraft profiles
+`config/aerocraft/profiles/<aircraft>.json` stores size, rotation, offset, afterburners, control surfaces, gear
+and the aircraft's own engine / flight sounds. Switching aircraft swaps all of it.
 
-## Sounds (Sound tab)
-Separate import buttons for **engine** and **flight** sounds (.wav or .ogg). Stored in `config/mig25/sounds`.
+## Editor (Hangar > Open editor)
+Pages: **Shape**, **Flames**, **Flaps** (aileron / elevator / rudder / airbrake), **Gear**.
+Pick surfaces by mesh part (named parts of the model), by cutting box, or by whole group; set the hinge point,
+hinge axis and max deflection; the test buttons move them live on the aircraft behind the panel.
 
 ## Build
-JDK 25, Gradle 9.8+. `gradle build` -> `build/libs`. Needs Fabric API for 26.3.
-Model credit: see CREDITS.md (MiG-25 by abhinab.das000, CC-BY-4.0).
+JDK 25, Gradle 9.8+. `gradle build` -> `build/libs/aerocraft-elytra-*.jar`. Needs Fabric API for 26.3.
+The built-in default fighter model is credited in CREDITS.md (CC-BY-4.0).
