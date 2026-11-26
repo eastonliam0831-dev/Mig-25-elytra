@@ -32,9 +32,8 @@ public class Mig25Client implements ClientModInitializer {
 	/** Immutable snapshot taken during extraction, used when submitting geometry. */
 	private record Frame(double x, double y, double z, float yaw, float pitch, float roll, float ahead,
 			boolean gearVisible, float gearPos, LoadedModel model, ModelProfile prof, Rig rig,
-			float cRoll, float cPitch, float cYaw, float cBrake,
 			float thr, boolean flames, float mach, double[] headTips, float headIntensity,
-			float pvYaw, float pvPitch) {}
+			float pvYaw, float pvPitch, RigPart highlight, boolean studio) {}
 
 	private interface TriSink {
 		void tri(float ax, float ay, float az, float bx, float by, float bz, float cx, float cy, float cz, int argb);
@@ -60,6 +59,7 @@ public class Mig25Client implements ClientModInitializer {
 			JetState.tick(mc);
 			FreeLook.tick(freeLookKey != null && freeLookKey.isDown());
 			JetAudio.tick(mc);
+			ModelManager.tickSave();
 			if (gearKey != null) {
 				while (gearKey.consumeClick()) JetState.toggleGear();
 			}
@@ -121,10 +121,9 @@ public class Mig25Client implements ClientModInitializer {
 			}
 			float gp = Mth.lerp(pt, JetState.prevGearPos, JetState.gearPos);
 			frame = new Frame(x, y, z, yaw, pitch, roll, ahead, JetState.gearVisible(), gp, model, prof, rig,
-					Mth.lerp(pt, JetState.pRoll, JetState.cRoll), Mth.lerp(pt, JetState.pPitch, JetState.cPitch),
-					Mth.lerp(pt, JetState.pYaw, JetState.cYaw), Mth.lerp(pt, JetState.pBrake, JetState.cBrake),
 					thr, flames, mach, head, headI,
-					editor ? JetState.previewYaw : 0f, editor ? JetState.previewPitch : 0f);
+					editor ? JetState.previewYaw : 0f, editor ? JetState.previewPitch : 0f,
+					editor ? JetState.highlight : null, editor && JetConfig.studio);
 		});
 
 		LevelRenderEvents.COLLECT_SUBMITS.register(context -> {
@@ -135,6 +134,11 @@ public class Mig25Client implements ClientModInitializer {
 			if (model.builtin && JetModel.groups.length == 0) return;
 			Vec3 cam = context.levelState().cameraRenderState.pos;
 			PoseStack pose = context.poseStack();
+			if (f.studio()) {
+				pose.pushPose();
+				submitStudio(context, pose, f, cam);
+				pose.popPose();
+			}
 			pose.pushPose();
 			pose.translate(f.x() - cam.x, f.y() - cam.y, f.z() - cam.z);
 			pose.mulPose(new Matrix4f().rotationY((float) Math.toRadians(-f.yaw())));
@@ -196,26 +200,15 @@ public class Mig25Client implements ClientModInitializer {
 
 	private static void submitPiece(net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext context,
 			PoseStack pose, LoadedModel m, Rig.Piece pc) {
-		if (m.builtin) {
-			switch (pc.src) {
-				case 1 -> submitGroup(context, pose, pc.g, RenderTypes.entityTranslucent(TEX_NOZZLE), 0xFFFFFFFF);
-				case 2 -> submitGroup(context, pose, pc.g, RenderTypes.entityTranslucent(TEX_GLASS), 0x59B8D0E0);
-				default -> submitGroup(context, pose, pc.g, RenderTypes.entityTranslucent(TEX_BODY), 0xFFFFFFFF);
-			}
+		if (pc.painted || !m.builtin) {
+			submitGroup(context, pose, pc.g, RenderTypes.entityTranslucent(TEX_GLASS), 0xFFFFFFFF, false);
 		} else {
-			submitGroup(context, pose, pc.g, RenderTypes.entityTranslucent(TEX_GLASS), 0xFFFFFFFF);
+			switch (pc.src) {
+				case 1 -> submitGroup(context, pose, pc.g, RenderTypes.entityTranslucent(TEX_NOZZLE), 0xFFFFFFFF, false);
+				case 2 -> submitGroup(context, pose, pc.g, RenderTypes.entityTranslucent(TEX_GLASS), 0x59B8D0E0, false);
+				default -> submitGroup(context, pose, pc.g, RenderTypes.entityTranslucent(TEX_BODY), 0xFFFFFFFF, false);
+			}
 		}
-	}
-
-	private static float rigAngle(RigPart rp, Frame f) {
-		double in = switch (rp.kind) {
-			case AILERON -> f.cRoll();
-			case ELEVATOR -> f.cPitch();
-			case RUDDER -> f.cYaw();
-			case AIRBRAKE -> f.cBrake();
-			case GEAR -> f.gearPos();
-		};
-		return (float) (in * rp.gain * rp.maxDeg);
 	}
 
 	private static void submitRig(net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext context,
@@ -223,7 +216,7 @@ public class Mig25Client implements ClientModInitializer {
 		Rig rig = f.rig();
 		if (rig == null) {
 			for (JetModel.Group g : m.groups) {
-				submitGroup(context, pose, g, RenderTypes.entityTranslucent(m.builtin ? TEX_BODY : TEX_GLASS), 0xFFFFFFFF);
+				submitGroup(context, pose, g, RenderTypes.entityTranslucent(m.builtin ? TEX_BODY : TEX_GLASS), 0xFFFFFFFF, false);
 			}
 			return;
 		}
@@ -232,7 +225,7 @@ public class Mig25Client implements ClientModInitializer {
 		for (int pass = 0; pass < 2; pass++) {
 			boolean glassPass = pass == 1;
 			for (Rig.Piece pc : rig.base) {
-				boolean glass = m.builtin && pc.src == 2;
+				boolean glass = m.builtin && pc.src == 2 && !pc.painted;
 				if (glass != glassPass) continue;
 				if (m.builtin && pc.src == 3 && !f.gearVisible()) continue;
 				submitPiece(context, pose, m, pc);
@@ -240,13 +233,12 @@ public class Mig25Client implements ClientModInitializer {
 			if (glassPass) break;
 			for (Rig.Piece pc : rig.moving) {
 				RigPart rp = pc.part;
-				if (rp.isGear() && !f.gearVisible()) continue;
+				if (!f.gearVisible()) continue;
 				pose.pushPose();
-				if (rp.isGear()) {
-					float k = f.gearPos();
-					pose.translate(rp.tx * unit * k, rp.ty * unit * k, rp.tz * unit * k);
-				}
-				float ang = rigAngle(rp, f);
+				pose.translate(rp.ox * unit, rp.oy * unit, rp.oz * unit);
+				float k = f.gearPos();
+				pose.translate(rp.tx * unit * k, rp.ty * unit * k, rp.tz * unit * k);
+				float ang = (float) (k * rp.gain * rp.maxDeg);
 				if (Math.abs(ang) > 0.01f) {
 					double len = Math.sqrt(rp.ax * rp.ax + rp.ay * rp.ay + rp.az * rp.az);
 					if (len > 1e-6) {
@@ -257,17 +249,20 @@ public class Mig25Client implements ClientModInitializer {
 					}
 				}
 				submitPiece(context, pose, m, pc);
+				if (rp == f.highlight()) {
+					submitGroup(context, pose, pc.g, RenderTypes.entityTranslucent(TEX_GLASS), 0x70FFB020, true);
+				}
 				pose.popPose();
 			}
 		}
 	}
 
 	private static void submitGroup(net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext context,
-			PoseStack pose, JetModel.Group g, RenderType type, int argb) {
+			PoseStack pose, JetModel.Group g, RenderType type, int argb, boolean ignoreVertexColors) {
 		context.submitNodeCollector().submitCustomGeometry(pose, type, (p, buf) -> {
 			float[] v = g.v;
 			int[] idx = g.idx;
-			int[] col = g.col;
+			int[] col = ignoreVertexColors ? null : g.col;
 			for (int t = 0; t + 2 < idx.length; t += 3) {
 				for (int k = 0; k < 4; k++) { // triangle emitted as a quad (last vertex repeated)
 					int vi = idx[t + Math.min(k, 2)];
@@ -287,12 +282,9 @@ public class Mig25Client implements ClientModInitializer {
 		return (Math.max(0, Math.min(255, a)) << 24) | (r << 16) | (g << 8) | b;
 	}
 
-	/** Afterburner flames and the supersonic Mach cone, drawn in the jet's own frame (before the model rotation). */
-	private static void submitEffects(net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext context,
-			PoseStack pose, Frame f, boolean flames) {
-		ModelProfile pr = f.prof();
-		double size = pr.size;
-		float t = (float) ((System.nanoTime() / 1.0e9) % 10000.0);
+	/** Runs body with a double-sided, uniformly lit triangle sink on the white texture. */
+	private static void withSink(net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext context,
+			PoseStack pose, java.util.function.Consumer<TriSink> body) {
 		context.submitNodeCollector().submitCustomGeometry(pose, RenderTypes.entityTranslucent(TEX_GLASS), (p, buf) -> {
 			int[] front = {0, 1, 2, 2};
 			int[] back = {0, 2, 1, 1};
@@ -310,6 +302,17 @@ public class Mig25Client implements ClientModInitializer {
 					}
 				}
 			};
+			body.accept(sink);
+		});
+	}
+
+	/** Afterburner flames and the supersonic Mach cone, drawn in the jet's own frame (before the model rotation). */
+	private static void submitEffects(net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext context,
+			PoseStack pose, Frame f, boolean flames) {
+		ModelProfile pr = f.prof();
+		double size = pr.size;
+		float t = (float) ((System.nanoTime() / 1.0e9) % 10000.0);
+		withSink(context, pose, sink -> {
 			if (flames) {
 				int i = 0;
 				for (ModelProfile.Afterburner b : pr.burners) {
@@ -361,23 +364,7 @@ public class Mig25Client implements ClientModInitializer {
 	private static void submitTrails(net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext context,
 			PoseStack pose, Frame f, Vec3 cam) {
 		java.util.List<Trails.Sample> samples = Trails.snapshot();
-		context.submitNodeCollector().submitCustomGeometry(pose, RenderTypes.entityTranslucent(TEX_GLASS), (p, buf) -> {
-			int[] front = {0, 1, 2, 2};
-			int[] back = {0, 2, 1, 1};
-			TriSink sink = (ax, ay, az, bx, by, bz, cx, cy, cz, col) -> {
-				float[] vv = {ax, ay, az, bx, by, bz, cx, cy, cz};
-				for (int[] order : new int[][] {front, back}) {
-					for (int k = 0; k < 4; k++) {
-						int o = order[k] * 3;
-						buf.addVertex(p, vv[o], vv[o + 1], vv[o + 2])
-								.setColor(col)
-								.setUv(0.5f, 0.5f)
-								.setOverlay(OverlayTexture.NO_OVERLAY)
-								.setLight(FULL_BRIGHT)
-								.setNormal(p, 0f, 1f, 0f);
-					}
-				}
-			};
+		withSink(context, pose, sink -> {
 			for (int side = 0; side < 2; side++) {
 				double[][] pts = new double[samples.size() + 1][];
 				float[] inten = new float[samples.size() + 1];
@@ -420,5 +407,43 @@ public class Mig25Client implements ClientModInitializer {
 				}
 			}
 		});
+	}
+
+	/** Dark studio room with a floor grid around the plane (editor only). Coordinates are camera-relative. */
+	private static void submitStudio(net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext context,
+			PoseStack pose, Frame f, Vec3 cam) {
+		final float radius = (float) Math.max(18.0, f.prof().size * 1.5 + 8.0);
+		final float ox = (float) (f.x() - cam.x), oz = (float) (f.z() - cam.z);
+		final float floorY = (float) (f.y() - 0.86 - cam.y);
+		final float topY = floorY + radius * 1.2f;
+		final int rgb = JetConfig.hudColor();
+		final int ar = (rgb >> 16) & 255, ag = (rgb >> 8) & 255, ab = rgb & 255;
+		withSink(context, pose, sink -> {
+			int wall = 0xFF0B1118, wallTop = 0xFF070B10, floor = 0xFF111A24;
+			float x0 = ox - radius, x1 = ox + radius, z0 = oz - radius, z1 = oz + radius;
+			// four walls, ceiling and floor
+			quad(sink, x0, floorY, z0, x1, floorY, z0, x1, topY, z0, x0, topY, z0, wall);
+			quad(sink, x0, floorY, z1, x1, floorY, z1, x1, topY, z1, x0, topY, z1, wall);
+			quad(sink, x0, floorY, z0, x0, floorY, z1, x0, topY, z1, x0, topY, z0, wall);
+			quad(sink, x1, floorY, z0, x1, floorY, z1, x1, topY, z1, x1, topY, z0, wall);
+			quad(sink, x0, topY, z0, x1, topY, z0, x1, topY, z1, x0, topY, z1, wallTop);
+			quad(sink, x0, floorY, z0, x1, floorY, z0, x1, floorY, z1, x0, floorY, z1, floor);
+			// grid lines every block, thicker every 5
+			int half = (int) Math.min(radius - 1, 16);
+			float y = floorY + 0.012f;
+			for (int i = -half; i <= half; i++) {
+				boolean major = i % 5 == 0;
+				float w = major ? 0.045f : 0.02f;
+				int col = argb(major ? 150 : 80, ar, ag, ab);
+				quad(sink, ox + i - w, y, oz - half, ox + i + w, y, oz - half, ox + i + w, y, oz + half, ox + i - w, y, oz + half, col);
+				quad(sink, ox - half, y, oz + i - w, ox + half, y, oz + i - w, ox + half, y, oz + i + w, ox - half, y, oz + i + w, col);
+			}
+		});
+	}
+
+	private static void quad(TriSink s, float ax, float ay, float az, float bx, float by, float bz,
+			float cx, float cy, float cz, float dx, float dy, float dz, int col) {
+		s.tri(ax, ay, az, bx, by, bz, cx, cy, cz, col);
+		s.tri(ax, ay, az, cx, cy, cz, dx, dy, dz, col);
 	}
 }

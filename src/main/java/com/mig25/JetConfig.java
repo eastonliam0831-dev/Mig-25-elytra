@@ -22,6 +22,7 @@ public final class JetConfig {
 	public static int freeLookSens = 1;
 	public static String activeModel = "builtin";
 	public static boolean autoDeploy = true;
+	public static boolean studio = true;
 	public static boolean vaporTrails = true;
 	public static int trailSens = 1;
 	public static boolean machCone = true;
@@ -59,7 +60,7 @@ public final class JetConfig {
 		invertRoll = false; autoBank = true; pushAhead = true; freeLook = true; freeLookSens = 1;
 		sizeIndex = 2; gearMode = 0; colorIndex = 0; flameMode = 1;
 		engineOn = true; flightOn = true; engineVol = 3; flightVol = 3;
-		autoDeploy = true; vaporTrails = true; trailSens = 1; machCone = true; machIdx = 1; shake = true; shakeIdx = 1;
+		autoDeploy = true; studio = true; vaporTrails = true; trailSens = 1; machCone = true; machIdx = 1; shake = true; shakeIdx = 1;
 		save();
 	}
 
@@ -111,6 +112,7 @@ public final class JetConfig {
 			freeLookSens = Math.floorMod(i(p, "freeLookSens", freeLookSens), LOOK_SENS.length);
 			activeModel = p.getProperty("activeModel", activeModel);
 			autoDeploy = b(p, "autoDeploy", autoDeploy);
+			studio = b(p, "studio", studio);
 			vaporTrails = b(p, "vaporTrails", vaporTrails);
 			trailSens = Math.floorMod(i(p, "trailSens", trailSens), TRAIL_G.length);
 			machCone = b(p, "machCone", machCone);
@@ -147,6 +149,7 @@ public final class JetConfig {
 			p.setProperty("freeLookSens", String.valueOf(freeLookSens));
 			p.setProperty("activeModel", activeModel);
 			p.setProperty("autoDeploy", String.valueOf(autoDeploy));
+			p.setProperty("studio", String.valueOf(studio));
 			p.setProperty("vaporTrails", String.valueOf(vaporTrails));
 			p.setProperty("trailSens", String.valueOf(trailSens));
 			p.setProperty("machCone", String.valueOf(machCone));

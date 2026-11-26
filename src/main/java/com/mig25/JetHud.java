@@ -95,7 +95,9 @@ public final class JetHud {
 		ItemStack el = p.getItemBySlot(EquipmentSlot.CHEST);
 		int max = Math.max(1, el.getMaxDamage());
 		float fuel = Mth.clamp((max - el.getDamageValue()) / (float) max, 0f, 1f);
-		int by = h - 52, bw = 90;
+		// stay above the survival bars (hearts/armor/air bubbles end about 62 px from the bottom)
+		int safeBottom = h - 66;
+		int by = safeBottom - 24, bw = 90;
 		g.text(mc.font, "FUEL", cx - bw - 46, by - 1, DIM, false);
 		g.outline(cx - bw - 10, by - 2, bw, 10, fuel < 0.15f ? RED : GREEN);
 		g.fill(cx - bw - 8, by, cx - bw - 8 + (int) ((bw - 4) * fuel), by + 6, fuel < 0.15f ? RED : GREEN);
@@ -105,8 +107,9 @@ public final class JetHud {
 		g.fill(cx + 12, by, cx + 12 + (int) ((bw - 4) * thr), by + 6, thr > 0.9f ? 0xFFFFAA33 : GREEN);
 
 		String planeName = ModelManager.displayName(ModelManager.currentName).toUpperCase();
+		if (planeName.length() > 26) planeName = planeName.substring(0, 25) + "...";
 		String status = p.isFallFlying() ? planeName + "  AIRBORNE" : "AIRCRAFT  STANDBY";
-		g.text(mc.font, status, cx - mc.font.width(status) / 2, h - 36, GREEN, false);
+		g.text(mc.font, status, cx - mc.font.width(status) / 2, safeBottom - 10, GREEN, false);
 		if (JetState.gearVisible()) {
 			float gp = JetState.gearPos;
 			String gear = gp < 0.05f ? "GEAR  DOWN" : gp > 0.95f ? "GEAR  UP" : "GEAR  MOVING";

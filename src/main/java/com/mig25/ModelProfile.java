@@ -35,22 +35,10 @@ public final class ModelProfile {
 	public String flightSound = "";
 	public final List<Afterburner> burners = new ArrayList<>();
 	public final List<RigPart> rig = new ArrayList<>();
+	/** Paint: key = group * 1_000_000 + triangle index, value = 0xRRGGBB. */
+	public final java.util.Map<Integer, Integer> paint = new java.util.HashMap<>();
 
 	// ---------------------------------------------------------------- defaults
-	private static RigPart surface(String part, RigPart.Kind kind, double px, double py, double pz,
-			double ax, double ay, double az, double maxDeg, double gain) {
-		RigPart r = new RigPart();
-		r.name = part;
-		r.kind = kind;
-		r.mode = RigPart.Mode.PART;
-		r.part = part;
-		r.px = px; r.py = py; r.pz = pz;
-		r.ax = ax; r.ay = ay; r.az = az;
-		r.maxDeg = maxDeg;
-		r.gain = gain;
-		return r;
-	}
-
 	public static ModelProfile defaultFor(boolean builtin) {
 		ModelProfile p = new ModelProfile();
 		if (builtin) {
@@ -63,18 +51,8 @@ public final class ModelProfile {
 				a.rad = 2.8;
 				p.burners.add(a);
 			}
-			// hinge positions and axes come from the hinge nodes of the original model
-			p.rig.add(surface("AileronL", RigPart.Kind.AILERON, 16.87, -3.3, -26.53, 0.96, -0.08, -0.28, 22, -1));
-			p.rig.add(surface("AileronR", RigPart.Kind.AILERON, -16.87, -3.3, -26.53, -0.96, -0.08, -0.28, 22, -1));
-			p.rig.add(surface("ElevatorL", RigPart.Kind.ELEVATOR, 6.78, -6.19, -38.94, 0.76, -0.02, -0.64, 22, 1));
-			p.rig.add(surface("ElevatorR", RigPart.Kind.ELEVATOR, -6.78, -6.19, -38.94, -0.76, -0.02, -0.64, 22, -1));
-			p.rig.add(surface("RudderL", RigPart.Kind.RUDDER, 6.17, -0.93, -39.15, 0.13, 0.90, -0.42, 25, 1));
-			p.rig.add(surface("RudderR", RigPart.Kind.RUDDER, -6.17, -0.93, -39.15, -0.13, 0.90, -0.42, 25, 1));
-			p.rig.add(surface("FlapL", RigPart.Kind.AIRBRAKE, 7.57, -2.04, -23.47, 0.95, -0.09, -0.28, 30, -1));
-			p.rig.add(surface("FlapR", RigPart.Kind.AIRBRAKE, -7.57, -2.04, -23.47, -0.95, -0.09, -0.28, 30, 1));
 			RigPart gear = new RigPart();
 			gear.name = "Landing gear";
-			gear.kind = RigPart.Kind.GEAR;
 			gear.mode = RigPart.Mode.GROUP;
 			gear.group = 3;
 			gear.maxDeg = 0;
@@ -171,6 +149,7 @@ public final class ModelProfile {
 				p.burners.add(a);
 			}
 		}
+		readPaint(p, o.get("paint"));
 		List<Object> rl = Json.arr(o.get("rig"));
 		if (rl != null) {
 			p.rig.clear();
@@ -179,7 +158,7 @@ public final class ModelProfile {
 				if (r == null || p.rig.size() >= 64) continue;
 				RigPart rp = new RigPart();
 				if (r.get("name") instanceof String s) rp.name = s;
-				rp.kind = enumOf(RigPart.Kind.values(), r.get("kind"), RigPart.Kind.AILERON);
+				if (r.get("kind") instanceof String kk && !kk.equals("GEAR")) continue; // flaps were removed
 				rp.mode = enumOf(RigPart.Mode.values(), r.get("mode"), RigPart.Mode.PART);
 				if (r.get("part") instanceof String s) rp.part = s;
 				rp.group = Json.intv(r.get("group"), 0);
@@ -191,11 +170,25 @@ public final class ModelProfile {
 				if (ax != null && ax.length >= 3) { rp.ax = ax[0]; rp.ay = ax[1]; rp.az = ax[2]; }
 				rp.maxDeg = Json.num(r.get("maxDeg"), 25);
 				rp.gain = Json.num(r.get("gain"), 1);
+				double[] dep = Json.nums(r.get("deployed"));
+				if (dep != null && dep.length >= 3) { rp.ox = dep[0]; rp.oy = dep[1]; rp.oz = dep[2]; }
 				double[] mv = Json.nums(r.get("move"));
 				if (mv != null && mv.length >= 3) { rp.tx = mv[0]; rp.ty = mv[1]; rp.tz = mv[2]; }
 				rp.enabled = !Boolean.FALSE.equals(r.get("enabled"));
 				p.rig.add(rp);
 			}
+		}
+	}
+
+	private static void readPaint(ModelProfile p, Object paintJson) {
+		List<Object> runs = Json.arr(paintJson);
+		if (runs == null) return;
+		p.paint.clear();
+		for (Object ro : runs) {
+			double[] r = Json.nums(ro);
+			if (r == null || r.length < 3) continue;
+			int start = (int) r[0], len = (int) r[1], rgb = (int) r[2];
+			for (int i = 0; i < len && p.paint.size() < 1_000_000; i++) p.paint.put(start + i, rgb);
 		}
 	}
 
@@ -245,15 +238,29 @@ public final class ModelProfile {
 		j.append("  ],\n  \"rig\": [\n");
 		for (int i = 0; i < rig.size(); i++) {
 			RigPart r = rig.get(i);
-			j.append("    {\"name\": ").append(q(r.name)).append(", \"kind\": ").append(q(r.kind.name()))
+			j.append("    {\"name\": ").append(q(r.name)).append(", \"kind\": \"GEAR\"")
 					.append(", \"mode\": ").append(q(r.mode.name())).append(", \"part\": ").append(q(r.part))
 					.append(", \"group\": ").append(r.group).append(", \"box\": ").append(arr(r.box))
+					.append(", \"deployed\": ").append(arr(r.ox, r.oy, r.oz))
 					.append(", \"pivot\": ").append(arr(r.px, r.py, r.pz)).append(", \"axis\": ").append(arr(r.ax, r.ay, r.az))
 					.append(", \"maxDeg\": ").append(r.maxDeg).append(", \"gain\": ").append(r.gain)
 					.append(", \"move\": ").append(arr(r.tx, r.ty, r.tz)).append(", \"enabled\": ").append(r.enabled).append('}')
 					.append(i + 1 < rig.size() ? ",\n" : "\n");
 		}
-		j.append("  ]\n}\n");
+		j.append("  ],\n  \"paint\": [");
+		java.util.List<Integer> keys = new ArrayList<>(paint.keySet());
+		java.util.Collections.sort(keys);
+		boolean first = true;
+		int i = 0;
+		while (i < keys.size()) {
+			int start = keys.get(i), color = paint.get(start), len = 1;
+			while (i + len < keys.size() && keys.get(i + len) == start + len && paint.get(keys.get(i + len)) == color) len++;
+			if (!first) j.append(", ");
+			j.append('[').append(start).append(", ").append(len).append(", ").append(color).append(']');
+			first = false;
+			i += len;
+		}
+		j.append("]\n}\n");
 		return j.toString();
 	}
 

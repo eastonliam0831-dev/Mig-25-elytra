@@ -19,12 +19,10 @@ public final class JetState {
 	// bank angle (used when Do a Barrel Roll is not present)
 	public static float roll = 0f, prevRoll = 0f;
 
-	// flight-control inputs, -1..1 (roll: +right bank, pitch: +pull up, yaw: +turn right, brake 0..1), current and previous tick
-	public static float cRoll, cPitch, cYaw, cBrake;
-	public static float pRoll, pPitch, pYaw, pBrake;
-	/** Test values set by the editor buttons; used while the editor is open. */
-	public static float testRoll, testPitch, testYaw, testBrake;
+	/** Test value for the landing gear lever, used while the editor is open. */
 	public static boolean testGearUp = false;
+	/** Gear region highlighted in the editor (null = none). */
+	public static volatile RigPart highlight = null;
 
 	// landing gear: 0 = fully deployed, 1 = fully retracted
 	public static float gearPos = 0f, prevGearPos = 0f;
@@ -89,13 +87,10 @@ public final class JetState {
 		}
 
 		prevRoll = roll;
-		pRoll = cRoll; pPitch = cPitch; pYaw = cYaw; pBrake = cBrake;
 		prevGearPos = gearPos;
 
 		if (!active || p == null) {
 			roll = 0f;
-			cRoll = cPitch = cYaw = cBrake = 0f;
-			pRoll = pPitch = pYaw = pBrake = 0f;
 			gForce = 0f;
 			gliding = false;
 			Trails.tick(false, 0f, null);
@@ -119,26 +114,9 @@ public final class JetState {
 		// roll source: Do a Barrel Roll when present, otherwise the bank angle
 		Float dabr = JetConfig.barrelRoll ? BarrelRollCompat.roll(p, 1f) : null;
 		float rollSrc = dabr != null ? (JetConfig.invertRoll ? -dabr : dabr) : roll;
-		float dRoll = rollSrc - lastRollSrc;
 		lastRollSrc = rollSrc;
 
-		float tRoll, tPitch, tYaw, tBrake;
-		if (editorOpen) {
-			tRoll = testRoll; tPitch = testPitch; tYaw = testYaw; tBrake = testBrake;
-		} else if (gliding) {
-			tRoll = clamp1(dRoll * 0.30f);
-			tPitch = clamp1(-dPitch * 0.40f);
-			tYaw = clamp1(dYaw * 0.35f);
-			float decel = (float) Math.max(0.0, (lastSpeed - speed) * 0.15);
-			tBrake = Math.max(p.isShiftKeyDown() ? 1f : 0f, Math.min(1f, decel));
-		} else {
-			tRoll = tPitch = tYaw = tBrake = 0f;
-		}
 		lastSpeed = speed;
-		cRoll = approach(cRoll, tRoll, 0.35f);
-		cPitch = approach(cPitch, tPitch, 0.35f);
-		cYaw = approach(cYaw, tYaw, 0.35f);
-		cBrake = approach(cBrake, tBrake, 0.30f);
 
 		// G-force estimate from turn rate and speed
 		float omegaDegPerTick = (float) Math.hypot(dYaw * Math.cos(Math.toRadians(pitchNow)), dPitch);

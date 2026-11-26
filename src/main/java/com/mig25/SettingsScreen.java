@@ -52,6 +52,15 @@ public class SettingsScreen extends TacticalScreen {
 		slot++;
 	}
 
+	/** Y just below the rows added so far (so hint texts never overlap the buttons). */
+	private int afterRowsY() {
+		return cy0 + ((slot + 1) / 2) * 24 + 4;
+	}
+
+	private void hint(int line, int color, String s) {
+		textFit(cx0, afterRowsY() + line * 12, color, cw, () -> s);
+	}
+
 	private void skipToNewRow() {
 		if (slot % 2 == 1) slot++;
 	}
@@ -111,17 +120,17 @@ public class SettingsScreen extends TacticalScreen {
 		toggleRow("Supersonic Mach cone", () -> JetConfig.machCone, () -> JetConfig.machCone = !JetConfig.machCone);
 		valueRow("Mach cone speed", () -> Math.round(JetConfig.MACH_SPEEDS[JetConfig.machIdx]) + " blocks/s",
 				() -> JetConfig.machIdx = (JetConfig.machIdx + 1) % JetConfig.MACH_SPEEDS.length);
-		text(cx0, cy0 + ch - 24, DIM, "Gear lever: G (rebind in Controls) - works in Retractable mode");
-		text(cx0, cy0 + ch - 12, DIM, "Every aircraft keeps its own size, flames, flaps, gear and sounds.");
+		hint(0, DIM, "Gear lever: G (rebind in Controls) - works in Retractable mode");
+		hint(1, DIM, "Every aircraft keeps its own size, flames, gear, paint and sounds.");
 	}
 
 	private void hangarTab() {
 		int listW = 150;
-		text(cx0, cy0, accent(), "AIRCRAFT LIBRARY");
+		textFit(cx0, cy0, accent(), 150, () -> "AIRCRAFT LIBRARY");
 		List<String> names = ModelManager.list();
 		int rowH = 20;
 		int fixedBottom = 22 + 3 * 22 + 4; // scroll row + three action buttons
-		int visible = Math.max(3, (ch - 14 - fixedBottom) / (rowH + 2));
+		int visible = Math.max(1, (ch - 14 - fixedBottom) / (rowH + 2));
 		listScroll = Math.max(0, Math.min(listScroll, Math.max(0, names.size() - visible)));
 		for (int i = 0; i < visible; i++) {
 			int idx = listScroll + i;
@@ -148,24 +157,17 @@ public class SettingsScreen extends TacticalScreen {
 		});
 		rm.enabled = !ModelManager.BUILTIN.equals(ModelManager.currentName);
 
-		// preview viewport + test controls
+		// preview viewport + gear test
 		viewX = cx0 + listW + 8;
 		viewY = cy0;
 		viewW = cw - listW - 8;
-		viewH = ch - 50;
+		viewH = Math.max(60, ch - 26);
 		int ty = viewY + viewH + 4;
-		int bw = (viewW - 12) / 4;
-		testBtn(viewX, ty, bw, "Roll <", () -> HangarPreview.tRoll == -1f, () -> HangarPreview.tRoll = HangarPreview.tRoll == -1f ? 0f : -1f);
-		testBtn(viewX + (bw + 4), ty, bw, "Roll >", () -> HangarPreview.tRoll == 1f, () -> HangarPreview.tRoll = HangarPreview.tRoll == 1f ? 0f : 1f);
-		testBtn(viewX + 2 * (bw + 4), ty, bw, "Pitch up", () -> HangarPreview.tPitch == 1f, () -> HangarPreview.tPitch = HangarPreview.tPitch == 1f ? 0f : 1f);
-		testBtn(viewX + 3 * (bw + 4), ty, bw, "Pitch dn", () -> HangarPreview.tPitch == -1f, () -> HangarPreview.tPitch = HangarPreview.tPitch == -1f ? 0f : -1f);
-		int ty2 = ty + 22;
-		testBtn(viewX, ty2, bw, "Yaw <", () -> HangarPreview.tYaw == -1f, () -> HangarPreview.tYaw = HangarPreview.tYaw == -1f ? 0f : -1f);
-		testBtn(viewX + (bw + 4), ty2, bw, "Yaw >", () -> HangarPreview.tYaw == 1f, () -> HangarPreview.tYaw = HangarPreview.tYaw == 1f ? 0f : 1f);
-		testBtn(viewX + 2 * (bw + 4), ty2, bw, "Airbrake", () -> HangarPreview.tBrake > 0.5f, () -> HangarPreview.tBrake = HangarPreview.tBrake > 0.5f ? 0f : 1f);
-		testBtn(viewX + 3 * (bw + 4), ty2, bw, "Gear", () -> HangarPreview.gearUp, () -> HangarPreview.gearUp = !HangarPreview.gearUp);
+		int bw = (viewW - 4) / 2;
+		testBtn(viewX, ty, bw, "Test gear", () -> HangarPreview.gearUp, () -> HangarPreview.gearUp = !HangarPreview.gearUp);
+		testBtn(viewX + bw + 4, ty, bw, "Spin", () -> HangarPreview.autoSpin, () -> HangarPreview.autoSpin = !HangarPreview.autoSpin);
 		String st = ModelManager.status == null ? "" : ModelManager.status;
-		if (!st.isEmpty()) text(cx0 + 120, py + ph - 24, DIM, st.length() > 70 ? st.substring(0, 70) : st);
+		if (!st.isEmpty()) textFit(cx0 + 118, py + ph - 25, DIM, Math.max(10, cw - 236), () -> ModelManager.status == null ? "" : ModelManager.status);
 	}
 
 	private void testBtn(int x, int y, int w, String label, java.util.function.BooleanSupplier on, Runnable r) {
@@ -175,7 +177,7 @@ public class SettingsScreen extends TacticalScreen {
 
 	private void soundTab() {
 		ModelProfile pr = ModelManager.profile;
-		text(cx0, cy0, accent(), "SOUNDS FOR: " + ModelManager.displayName(ModelManager.currentName).toUpperCase());
+		textFit(cx0, cy0, accent(), cw, () -> "SOUNDS FOR: " + ModelManager.displayName(ModelManager.currentName).toUpperCase());
 		slot = 2; // leave the first row for the heading
 		toggleRow("Engine sound", () -> JetConfig.engineOn, () -> JetConfig.engineOn = !JetConfig.engineOn);
 		valueRow("Engine volume", () -> Math.round(JetConfig.VOLS[JetConfig.engineVol] * 100) + "%",
@@ -187,18 +189,17 @@ public class SettingsScreen extends TacticalScreen {
 				() -> JetConfig.flightVol = (JetConfig.flightVol + 1) % JetConfig.VOLS.length);
 		buttonRow("Import flight sound...", () -> FilePicker.pick("Import FLIGHT / wind sound (WAV or OGG)", path -> importSound(path, false)));
 		buttonRow("Clear flight sound", () -> { pr.flightSound = ""; ModelManager.saveProfile(); JetAudio.reload(); });
-		text(cx0, cy0 + ch - 36, TEXT, false, () -> "Engine: " + (pr.engineSound.isEmpty() ? "(none)" : pr.engineSound)
+		textFit(cx0, afterRowsY(), TEXT, cw, () -> "Engine: " + (pr.engineSound.isEmpty() ? "(none)" : pr.engineSound)
 				+ "    Flight: " + (pr.flightSound.isEmpty() ? "(none)" : pr.flightSound));
-		text(cx0, cy0 + ch - 24, DIM, "WAV and OGG only. Saved per aircraft in its profile.");
-		String st = ModelManager.status == null ? "" : ModelManager.status;
-		if (!st.isEmpty()) text(cx0, cy0 + ch - 12, DIM, st.length() > 80 ? st.substring(0, 80) : st);
+		hint(1, DIM, "WAV and OGG only. Saved per aircraft in its profile.");
+		textFit(cx0, afterRowsY() + 24, DIM, cw, () -> ModelManager.status == null ? "" : ModelManager.status);
 	}
 
 	private void hudTab() {
 		toggleRow("Fighter HUD", () -> JetConfig.hud, () -> JetConfig.hud = !JetConfig.hud);
 		valueRow("HUD colour", () -> JetConfig.COLOR_NAMES[JetConfig.colorIndex],
 				() -> JetConfig.colorIndex = (JetConfig.colorIndex + 1) % JetConfig.COLORS.length);
-		text(cx0, cy0 + ch - 12, DIM, "The HUD colour also tints this whole panel.");
+		hint(0, DIM, "The HUD colour also tints this whole panel.");
 	}
 
 	private void cameraTab() {
@@ -210,7 +211,7 @@ public class SettingsScreen extends TacticalScreen {
 		toggleRow("Speed shake", () -> JetConfig.shake, () -> JetConfig.shake = !JetConfig.shake);
 		valueRow("Shake strength", () -> JetConfig.SENS_NAMES[JetConfig.shakeIdx],
 				() -> JetConfig.shakeIdx = (JetConfig.shakeIdx + 1) % JetConfig.SHAKE_AMP.length);
-		text(cx0, cy0 + ch - 12, DIM, "Hold Free Look (default Left Alt) and move the mouse to orbit the camera.");
+		hint(0, DIM, "Hold Free Look (default Left Alt) and move the mouse to orbit the camera.");
 	}
 
 	private void flightTab() {
@@ -270,7 +271,7 @@ public class SettingsScreen extends TacticalScreen {
 			int ac = accent();
 			g.fill(viewX, viewY, viewX + viewW, viewY + viewH, 0xE0040810);
 			g.outline(viewX, viewY, viewW, viewH, alpha(ac, 0x90));
-			HangarPreview.draw(g, viewX, viewY, viewW, viewH, ac);
+			HangarPreview.draw(g, viewX, viewY, viewW, viewH, ac, false);
 		}
 	}
 

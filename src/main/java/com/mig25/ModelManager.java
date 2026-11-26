@@ -57,10 +57,18 @@ public final class ModelManager {
 	}
 
 	/** Rebuilds the moving-parts split after a model, profile or selection change. */
+	public static volatile int rigVersion = 0;
+
 	public static void rebuildRig() {
+		rigVersion++;
+		rebuildRigPaintOnly();
+	}
+
+	/** Rebuilds the drawn pieces after a paint change (geometry and gear selection are unchanged). */
+	public static void rebuildRigPaintOnly() {
 		try {
 			LoadedModel m = model();
-			rig = Rig.build(m.groups, m.partNames, m.longest, profile.rig);
+			rig = Rig.build(m.groups, m.partNames, m.longest, profile.rig, profile.paint);
 		} catch (Throwable t) {
 			System.err.println("[mig25] could not build rig: " + t);
 		}
@@ -135,7 +143,22 @@ public final class ModelManager {
 		if (changed) profile.save(profilesDir(), currentName);
 	}
 
+	private static volatile boolean profileDirty = false;
+	private static volatile long dirtySince = 0;
+
+	/** Marks the profile as changed; it is written shortly after the last change (and always when a screen closes). */
+	public static void markProfileDirty() {
+		profileDirty = true;
+		dirtySince = System.currentTimeMillis();
+	}
+
+	/** Called every client tick: saves a changed profile once it has been quiet for a moment. */
+	public static void tickSave() {
+		if (profileDirty && System.currentTimeMillis() - dirtySince > 800) saveProfile();
+	}
+
 	public static void saveProfile() {
+		profileDirty = false;
 		profile.save(profilesDir(), currentName);
 	}
 
