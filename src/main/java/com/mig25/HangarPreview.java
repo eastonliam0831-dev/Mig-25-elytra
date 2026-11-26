@@ -242,14 +242,14 @@ public final class HangarPreview {
 		var font = Minecraft.getInstance().font;
 		String gearInfo = vGear > 0.9f ? "GEAR UP" : vGear < 0.1f ? "GEAR DOWN" : "GEAR MOVING";
 		String info = ModelManager.displayName(ModelManager.currentName);
-		g.text(font, fitText(font, info, w - 12), x + 6, y + 5, (accent & 0x00FFFFFF) | 0xE0000000, false);
-		g.text(font, fitText(font, gearInfo, w - 12), x + 6, y + h - 11, 0xFF8A97A6, false);
+		g.text(font, fitText(font::width, info, w - 12), x + 6, y + 5, (accent & 0x00FFFFFF) | 0xE0000000, false);
+		g.text(font, fitText(font::width, gearInfo, w - 12), x + 6, y + h - 11, 0xFF8A97A6, false);
 	}
 
-	private static String fitText(net.minecraft.client.Font font, String s, int maxW) {
-		if (font.width(s) <= maxW) return s;
+	private static String fitText(java.util.function.ToIntFunction<String> width, String s, int maxW) {
+		if (width.applyAsInt(s) <= maxW) return s;
 		String t = s;
-		while (t.length() > 1 && font.width(t + "...") > maxW) t = t.substring(0, t.length() - 1);
+		while (t.length() > 1 && width.applyAsInt(t + "...") > maxW) t = t.substring(0, t.length() - 1);
 		return t + "...";
 	}
 
